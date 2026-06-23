@@ -13,6 +13,12 @@ import {
   AlertTriangleIcon,
 } from "lucide-react";
 
+import {
+  canAutoRequestLocation,
+  classifyBrowserGeoError,
+  requestBrowserGeoFix,
+  type BrowserGeoFix,
+} from "@/lib/browser-geolocation";
 import { COMPANY_TZ } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +43,7 @@ import {
 
 type PublicSite = { id: string; name: string };
 type RosterEntry = { id: string; name: string };
-type GeoFix = { lat: number; lng: number; accuracy: number };
+type GeoFix = BrowserGeoFix;
 
 type ClockResult = {
   action: "clocked_in" | "clocked_out";
@@ -81,32 +87,25 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [result, setResult] = React.useState<ClockResult | null>(null);
 
-  const requestLocation = React.useCallback(() => {
+  const requestLocation = React.useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGeoStatus("unavailable");
       return;
     }
     setGeoStatus("requesting");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setFix({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        });
-        setGeoStatus("granted");
-      },
-      (err) => {
-        setFix(null);
-        setGeoStatus(
-          err.code === err.PERMISSION_DENIED ? "denied" : "unavailable"
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+    try {
+      const nextFix = await requestBrowserGeoFix();
+      setFix(nextFix);
+      setGeoStatus("granted");
+    } catch (err) {
+      setFix(null);
+      const kind = classifyBrowserGeoError(err);
+      setGeoStatus(kind === "denied" ? "denied" : "unavailable");
+    }
   }, []);
 
-  // Load the Roster and kick off the location request on mount.
+  // Load the Roster. Only auto-request location when permission is already
+  // granted — iOS Safari blocks the prompt unless the call follows a tap.
   React.useEffect(() => {
     let cancelled = false;
 
@@ -121,10 +120,12 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
           toast.error("Couldn't load the worker list. Please refresh.");
         }
       }
-    })();
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: kick off the geolocation request on mount
-    requestLocation();
+      if (cancelled) return;
+      if (await canAutoRequestLocation()) {
+        requestLocation();
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -345,13 +346,19 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
         </div>
         <CardTitle className="text-2xl">
           {siteStatus === "loading" ? (
-            <Skeleton className="h-7 w-40" />
+            siteId || geoStatus !== "idle" ? (
+              <Skeleton className="h-7 w-40" />
+            ) : (
+              "Find your site"
+            )
           ) : (
             (site?.name ?? "")
           )}
         </CardTitle>
         <CardDescription>
-          Confirm your identity and that you&apos;re on site.
+          {siteStatus === "loading" && !siteId && geoStatus === "idle"
+            ? "Share your location so we can find the site you're at."
+            : "Confirm your identity and that you're on site."}
         </CardDescription>
       </CardHeader>
 
@@ -454,11 +461,25 @@ function LocationStatus({
     );
   }
 
-  if (status === "requesting" || status === "idle") {
+  if (status === "requesting") {
     return (
       <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
         <Loader2Icon className="size-4 animate-spin" />
         Getting your location…
+      </div>
+    );
+  }
+
+  if (status === "idle") {
+    return (
+      <div className="space-y-2 rounded-lg bg-muted/60 px-3 py-3">
+        <p className="text-sm text-muted-foreground">
+          Tap below to share your location and confirm you&apos;re on site.
+        </p>
+        <Button size="sm" className="w-full" onClick={onRetry}>
+          <MapPinIcon className="size-3.5" />
+          Share location
+        </Button>
       </div>
     );
   }
