@@ -66,20 +66,20 @@ export function getGeoRecoveryHint(ctx: GeoRecoveryContext): string {
 
   const safariTab = isSafariBrowserTab();
 
-  if (ctx.error === "timeout" && safariTab) {
-    return "Safari didn't respond to the location request. Tap aA in the address bar → Website Settings → Location → Allow, then retry. Or add Sited to your home screen — that often works when Safari doesn't.";
-  }
-
-  if (ctx.error === "timeout" && ctx.standalone && isIOSSafari()) {
-    return "The home-screen app couldn't get a location fix in time. Move to an open area and retry, or open the site in Safari and allow location there first.";
-  }
-
   if (ctx.error === "denied" && safariTab) {
-    return "Safari blocked location for this site. Tap aA next to the address bar → Website Settings → Location → Allow. If it's already Allow, set it to Ask, reload, tap Share location, and allow when prompted.";
+    return "Safari still reports location as blocked. Force-quit Safari (swipe it away), reopen this page, tap Share location, and choose Allow. If that fails: aA → Website Settings → Location → Allow, then reload.";
+  }
+
+  if (ctx.error === "timeout" && safariTab) {
+    return "Safari didn't respond in time. Force-quit Safari, reopen this page, and try again. Or add Sited to your home screen — that path works more reliably on iPhone.";
   }
 
   if (ctx.error === "denied" && ctx.standalone) {
     return "Location was blocked. Check Settings → Sited → Location, or open the site in Safari, tap aA → Website Settings → Location → Allow.";
+  }
+
+  if (ctx.error === "timeout" && ctx.standalone && isIOSSafari()) {
+    return "The home-screen app couldn't get a location fix in time. Move to an open area and retry.";
   }
 
   if (ctx.error === "timeout") {
@@ -87,7 +87,7 @@ export function getGeoRecoveryHint(ctx: GeoRecoveryContext): string {
   }
 
   if (safariTab) {
-    return "Safari couldn't get a GPS fix. Check aA → Website Settings → Location is set to Allow, or use the home-screen app instead.";
+    return "Safari couldn't get a GPS fix. Force-quit Safari, reopen, and retry — or use the home-screen app.";
   }
 
   return "We couldn't get a GPS fix. Move to an open area with a clear sky view and retry — clock-in needs your location.";
@@ -96,7 +96,7 @@ export function getGeoRecoveryHint(ctx: GeoRecoveryContext): string {
 /** Short hint shown before the user taps Share location in Safari. */
 export function getSafariLocationTip(): string | null {
   if (!isSafariBrowserTab()) return null;
-  return "Using Safari? If location fails, tap aA in the address bar → Website Settings → Location → Allow.";
+  return "Using Safari? Tap Share location, then choose Allow on the prompt. If it fails, force-quit Safari and try again.";
 }
 
 /**
@@ -140,7 +140,7 @@ function getCurrentPosition(
   });
 }
 
-/** watchPosition can succeed on iOS when getCurrentPosition hangs. */
+/** watchPosition can succeed on iOS when getCurrentPosition fails or hangs. */
 function watchPositionOnce(
   options: PositionOptions
 ): Promise<GeolocationPosition> {
@@ -175,31 +175,49 @@ function watchPositionOnce(
   });
 }
 
-/** Safari in-tab often hangs on one API; race both from the same user tap. */
-function raceGeoMethods(
-  options: PositionOptions
+type GeoMethod = (options: PositionOptions) => Promise<GeolocationPosition>;
+
+/**
+ * Try geolocation methods one at a time. Never run two in parallel — Safari
+ * fires PERMISSION_DENIED on one request while the user is allowing another.
+ */
+async function tryGeoMethodsSequentially(
+  options: PositionOptions,
+  methods: GeoMethod[]
 ): Promise<GeolocationPosition> {
-  return Promise.race([
-    getCurrentPosition(options),
-    watchPositionOnce(options),
-  ]);
+  let lastError: unknown;
+  for (const method of methods) {
+    try {
+      return await method(options);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error("unavailable");
+}
+
+function safariBrowserMethods(): GeoMethod[] {
+  // After the user taps Allow, the first call may still error; a second
+  // getCurrentPosition in the same tap sequence usually succeeds.
+  return [getCurrentPosition, watchPositionOnce, getCurrentPosition];
+}
+
+function defaultMethods(): GeoMethod[] {
+  return [getCurrentPosition, watchPositionOnce];
 }
 
 async function requestPosition(
   options: PositionOptions
 ): Promise<GeolocationPosition> {
   if (isSafariBrowserTab()) {
-    return raceGeoMethods(options);
+    return tryGeoMethodsSequentially(options, safariBrowserMethods());
   }
 
-  try {
-    return await getCurrentPosition(options);
-  } catch (err) {
-    if (isIOSSafari() && classifyError(err) !== "denied") {
-      return watchPositionOnce(options);
-    }
-    throw err;
+  if (isIOSSafari()) {
+    return tryGeoMethodsSequentially(options, defaultMethods());
   }
+
+  return getCurrentPosition(options);
 }
 
 function toFix(pos: GeolocationPosition): BrowserGeoFix {
@@ -228,11 +246,10 @@ function classifyError(err: unknown): BrowserGeoError {
 function buildAttempts(): PositionOptions[] {
   const standalone = isStandalonePWA();
 
-  // Safari tabs hang more on low-accuracy first; PWA/Chrome do better with low first.
   if (isSafariBrowserTab()) {
     return [
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
-      { enableHighAccuracy: false, timeout: 12_000, maximumAge: 60_000 },
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
+      { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 },
     ];
   }
 
@@ -263,8 +280,7 @@ export async function canAutoRequestLocation(): Promise<boolean> {
 }
 
 /**
- * Request a GPS fix with iOS-friendly fallbacks: low-accuracy first (faster,
- * more reliable indoors), then high-accuracy if needed.
+ * Request a GPS fix with iOS-friendly fallbacks.
  *
  * Must be invoked synchronously from a user click/tap handler on iOS — do not
  * await other work or call setState before this function.
@@ -275,17 +291,27 @@ export async function requestBrowserGeoFix(): Promise<BrowserGeoFix> {
   }
 
   const attempts = buildAttempts();
+  const safari = isSafariBrowser();
 
   let lastError: unknown;
+  let sawDenied = false;
+
   for (const options of attempts) {
     try {
       return toFix(await requestPosition(options));
     } catch (err) {
       lastError = err;
       if (classifyError(err) === "denied") {
+        sawDenied = true;
+        // Safari often returns denied once then succeeds on the next attempt.
+        if (safari) continue;
         throw err;
       }
     }
+  }
+
+  if (sawDenied) {
+    throw Object.assign(new Error("denied"), { code: PERMISSION_DENIED });
   }
 
   throw lastError ?? new Error("unavailable");
