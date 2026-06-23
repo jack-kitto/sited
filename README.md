@@ -5,7 +5,8 @@ the worker's **location** automatically (a **Site Tag** QR/NFC link to
 `/clock?site=<siteId>` still works as an override), then they pick their name
 from the **Roster** and enter a personal **PIN**. A hard geofence (default 100m,
 ADR-0002) requires the worker to be on site for both clock-in and clock-out.
-An **Admin** manages everything behind a single shared password.
+An **Admin** manages each **Company** (ADR-0004) behind that Company's shared
+password.
 
 See [`CONTEXT.md`](./CONTEXT.md) for the glossary and [`docs/adr`](./docs/adr)
 for the architecture decisions.
@@ -42,10 +43,10 @@ Re-run this whenever you change `wrangler.jsonc` or add a binding/secret.
 
 ## Secrets
 
-Two secrets are required:
+Two secrets are required today:
 
-- `ADMIN_PASSWORD` — the single shared admin password (ADR-0003).
-- `SESSION_SECRET` — key used to sign the admin session cookie (HMAC-SHA256).
+- `ADMIN_PASSWORD` — the single shared admin password (ADR-0003; **removed when ADR-0004 lands** — each Company will have its own hashed admin password in D1).
+- `SESSION_SECRET` — key used to sign the admin session cookie (HMAC-SHA256); retained under ADR-0004, with `companyId` in the session payload.
 
 **Local:** copy the example and fill it in (this file is gitignored):
 

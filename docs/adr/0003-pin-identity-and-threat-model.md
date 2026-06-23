@@ -6,4 +6,4 @@ Workers identify themselves by picking their name from the Roster and entering a
 
 - Records are trustworthy enough for honest workers with light deterrence, not for adversarial environments.
 - Stronger measures (selfie capture, server-side IP geolocation cross-check, device attestation) are deliberately deferred as future work.
-- The Admin authenticates with a single shared password (server secret), consistent with the lightweight posture; multi-admin accounts are future work if auditability is needed.
+- Admin authentication was originally a single global password (`ADMIN_PASSWORD` env secret). **Superseded by ADR-0004:** each Company has its own shared admin password (hashed in D1); session tokens carry `companyId`. Per-Admin accounts remain future work if auditability is needed.
