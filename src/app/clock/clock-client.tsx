@@ -242,7 +242,13 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <div className="mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <div
+            className={`mx-auto mb-2 flex size-14 items-center justify-center rounded-full ${
+              clockedIn
+                ? "bg-success/15 text-success"
+                : "bg-primary/10 text-primary"
+            }`}
+          >
             <CheckCircle2Icon className="size-8" />
           </div>
           <CardTitle className="text-xl">
@@ -254,18 +260,19 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-center gap-2">
-            <Badge variant={clockedIn ? "default" : "secondary"}>
+            <Badge variant={clockedIn ? "success" : "secondary"}>
               {clockedIn ? (
                 <LogInIcon className="size-3" />
               ) : (
                 <LogOutIcon className="size-3" />
               )}
               {clockedIn ? "Clocked in" : "Clocked out"} at{" "}
-              {formatTime(result.at)}
+              <span className="text-data">{formatTime(result.at)}</span>
             </Badge>
           </div>
-          <p className="text-center text-sm text-muted-foreground">
-            {result.distanceM}m from {result.siteName}
+          <p className="text-muted-foreground text-center text-sm">
+            <span className="text-data">{result.distanceM}m</span> from{" "}
+            {result.siteName}
           </p>
           <Button
             variant="outline"
@@ -390,7 +397,7 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
             inputMode="numeric"
             autoComplete="off"
             placeholder="••••"
-            className="h-12 text-center text-2xl tracking-[0.5em]"
+            className="text-data h-14 text-center text-2xl tracking-[0.5em]"
             value={pin}
             onChange={(e) =>
               setPin(e.target.value.replace(/\D/g, "").slice(0, 8))
@@ -435,12 +442,14 @@ function LocationStatus({
 }) {
   if (status === "granted" && fix) {
     return (
-      <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2">
-        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <MapPinIcon className="size-4 text-primary" />
-          Location confirmed
+      <div className="bg-success/10 flex items-center justify-between rounded-lg px-3 py-2">
+        <span className="text-foreground flex items-center gap-2 text-sm font-medium">
+          <MapPinIcon className="text-success size-4" />
+          On site
         </span>
-        <Badge variant="outline">±{Math.round(fix.accuracy)}m</Badge>
+        <Badge variant="outline" className="text-data">
+          ±{Math.round(fix.accuracy)}m
+        </Badge>
       </div>
     );
   }

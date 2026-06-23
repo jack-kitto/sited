@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-23T13:58:00Z",
+  "title": "Design System: Sited",
+  "extensions": {
+    "colorMeta": {
+      "brand-steel": {
+        "role": "primary",
+        "displayName": "Steel Blue",
+        "canonical": "oklch(0.46 0.12 248)",
+        "tonalRamp": [
+          "oklch(0.20 0.06 248)",
+          "oklch(0.30 0.09 248)",
+          "oklch(0.40 0.12 248)",
+          "oklch(0.46 0.12 248)",
+          "oklch(0.56 0.13 248)",
+          "oklch(0.68 0.11 248)",
+          "oklch(0.82 0.07 248)",
+          "oklch(0.94 0.03 248)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.20 0.012 248)",
+        "tonalRamp": [
+          "oklch(0.16 0.012 248)",
+          "oklch(0.20 0.012 248)",
+          "oklch(0.32 0.014 248)",
+          "oklch(0.48 0.015 248)",
+          "oklch(0.62 0.012 248)",
+          "oklch(0.78 0.008 248)",
+          "oklch(0.90 0.006 248)",
+          "oklch(0.975 0.004 248)"
+        ]
+      },
+      "on-site": {
+        "role": "tertiary",
+        "displayName": "On Site Green",
+        "canonical": "oklch(0.55 0.13 150)",
+        "tonalRamp": [
+          "oklch(0.24 0.06 150)",
+          "oklch(0.34 0.09 150)",
+          "oklch(0.45 0.12 150)",
+          "oklch(0.55 0.13 150)",
+          "oklch(0.66 0.12 150)",
+          "oklch(0.78 0.10 150)",
+          "oklch(0.88 0.06 150)",
+          "oklch(0.95 0.03 150)"
+        ]
+      },
+      "off-site": {
+        "role": "tertiary",
+        "displayName": "Off Site Red",
+        "canonical": "oklch(0.55 0.20 27)",
+        "tonalRamp": [
+          "oklch(0.24 0.09 27)",
+          "oklch(0.35 0.14 27)",
+          "oklch(0.46 0.18 27)",
+          "oklch(0.55 0.20 27)",
+          "oklch(0.66 0.18 27)",
+          "oklch(0.78 0.13 27)",
+          "oklch(0.88 0.08 27)",
+          "oklch(0.95 0.04 27)"
+        ]
+      },
+      "incomplete": {
+        "role": "tertiary",
+        "displayName": "Incomplete Amber",
+        "canonical": "oklch(0.78 0.13 75)",
+        "tonalRamp": [
+          "oklch(0.30 0.06 75)",
+          "oklch(0.42 0.09 75)",
+          "oklch(0.55 0.12 75)",
+          "oklch(0.68 0.13 75)",
+          "oklch(0.78 0.13 75)",
+          "oklch(0.87 0.10 80)",
+          "oklch(0.93 0.08 80)",
+          "oklch(0.97 0.03 80)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing hero and the worker's current-state headline." },
+      "headline": { "displayName": "Headline", "purpose": "Admin page and major section titles." },
+      "title": { "displayName": "Title", "purpose": "Card, dialog, and group titles." },
+      "body": { "displayName": "Body", "purpose": "Default UI text and prose (cap 65–75ch)." },
+      "label": { "displayName": "Label", "purpose": "Form labels, badges, table headers — sentence case." },
+      "data": { "displayName": "Data (Mono)", "purpose": "Times, durations, Worked Hours, PINs — tabular figures." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "0 8px 24px oklch(0.20 0.012 248 / 0.16)", "purpose": "Floating overlays only: dropdowns, selects, popovers, dialogs, toasts. Surfaces at rest are flat." }
+    ],
+    "motion": [
+      { "name": "ease-out-quart", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Default easing for state transitions; calm, no bounce." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Hover, focus, and small state changes." },
+      { "name": "duration-overlay", "value": "200ms", "purpose": "Overlay enter/exit (menu, dialog, toast)." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default admin-density primary action: steel-blue fill, white text.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; gap: 6px; background: oklch(0.46 0.12 248); color: oklch(1 0 0); font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; border: none; border-radius: 0.625rem; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1), transform 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: oklch(0.40 0.12 248); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.55 0.13 248 / 0.5); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Field Clock Button",
+      "kind": "button",
+      "refersTo": "button-field",
+      "description": "Worker clock-in/out action: oversized, full-width, glove- and sunlight-friendly.",
+      "html": "<button class=\"ds-btn-field\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>Clock in</button>",
+      "css": ".ds-btn-field { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 56px; background: oklch(0.46 0.12 248); color: oklch(1 0 0); font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 1.0625rem; font-weight: 600; border: none; border-radius: 0.625rem; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1), transform 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-field:hover { background: oklch(0.40 0.12 248); } .ds-btn-field:focus-visible { outline: none; box-shadow: 0 0 0 4px oklch(0.55 0.13 248 / 0.5); } .ds-btn-field:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action: white with ink text and a hairline border.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; gap: 6px; background: oklch(1 0 0); color: oklch(0.20 0.012 248); font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; border: 1px solid oklch(0.90 0.006 248); border-radius: 0.625rem; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-outline:hover { background: oklch(0.975 0.004 248); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.55 0.13 248 / 0.5); border-color: oklch(0.55 0.13 248); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard field with steel focus ring; no layout shift on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search workers\" />",
+      "css": ".ds-input { height: 32px; width: 240px; padding: 0 10px; background: oklch(1 0 0); color: oklch(0.20 0.012 248); font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; border: 1px solid oklch(0.90 0.006 248); border-radius: 0.625rem; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: oklch(0.48 0.015 248); } .ds-input:focus-visible { border-color: oklch(0.55 0.13 248); box-shadow: 0 0 0 3px oklch(0.55 0.13 248 / 0.5); }"
+    },
+    {
+      "name": "PIN Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Worker PIN entry: oversized, mono tabular digits, generous tracking.",
+      "html": "<input class=\"ds-input-pin\" inputmode=\"numeric\" maxlength=\"4\" placeholder=\"\u2022\u2022\u2022\u2022\" />",
+      "css": ".ds-input-pin { height: 56px; width: 100%; padding: 0 16px; background: oklch(1 0 0); color: oklch(0.20 0.012 248); font-family: 'Geist Mono', ui-monospace, monospace; font-size: 1.5rem; font-weight: 500; font-feature-settings: 'tnum'; letter-spacing: 0.5em; text-align: center; border: 1px solid oklch(0.90 0.006 248); border-radius: 0.625rem; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-input-pin:focus-visible { border-color: oklch(0.55 0.13 248); box-shadow: 0 0 0 4px oklch(0.55 0.13 248 / 0.5); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat surface separated by a 1px ring; no shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Today's shifts</div><div class=\"ds-card-body\">Alice clocked in at <span class=\"ds-data\">07:58</span>.</div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; background: oklch(1 0 0); color: oklch(0.20 0.012 248); border-radius: 0.875rem; box-shadow: inset 0 0 0 1px oklch(0.20 0.012 248 / 0.10); } .ds-card-title { font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 500; line-height: 1.35; } .ds-card-body { font-size: 0.875rem; color: oklch(0.48 0.015 248); } .ds-data { font-family: 'Geist Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; color: oklch(0.20 0.012 248); }"
+    },
+    {
+      "name": "On Site Badge",
+      "kind": "chip",
+      "refersTo": "badge-onsite",
+      "description": "Solid green status pill with icon — never color alone.",
+      "html": "<span class=\"ds-badge-onsite\"><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>On site</span>",
+      "css": ".ds-badge-onsite { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: oklch(0.55 0.13 150); color: oklch(1 0 0); font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; border-radius: 0.5rem; }"
+    },
+    {
+      "name": "Incomplete Badge",
+      "kind": "chip",
+      "refersTo": "badge-incomplete",
+      "description": "Soft amber pill for auto-closed Incomplete shifts flagged for review.",
+      "html": "<span class=\"ds-badge-incomplete\"><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>Incomplete</span>",
+      "css": ".ds-badge-incomplete { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: oklch(0.93 0.08 80); color: oklch(0.42 0.09 70); font-family: Geist, ui-sans-serif, system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; border-radius: 0.5rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Site Office",
+    "overview": "Sited should feel like the clipboard bolted to the trailer wall — the one dependable instrument a crew trusts to record who worked, where, and for how long. The system is built around a single steel-blue brand color on a flat, high-contrast neutral surface; the blue is utility infrastructure blue, not startup cobalt. It is legibility-first: a tool used one-handed, outdoors, in direct sun, sometimes in gloves — so contrast is generous, type is plain, and times/durations/PINs are set in tabular monospace. The worker clock flow and the admin dashboard share one language at two densities.",
+    "keyCharacteristics": [
+      "One brand hue (steel blue), reserved for action and active state — never decoration.",
+      "Pure-white surfaces; color and type carry the mood, not the background.",
+      "Flat by default: hairline rings, not shadows, separate surfaces.",
+      "Field-grade contrast and touch targets on the worker flow.",
+      "Monospace tabular figures for every time, duration, and PIN."
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "Steel blue is the only brand hue. It appears on primary actions and active state and nowhere decorative. Green, red, and amber are reserved exclusively for shift status.", "section": "colors" },
+      { "name": "The Status-Never-Color-Alone Rule", "body": "On site / off site and open / complete / incomplete must always pair the color with a text label and an icon.", "section": "colors" },
+      { "name": "The Tabular Truth Rule", "body": "Every time, duration, Worked-Hours total, and PIN renders in Geist Mono with tabular figures so numbers align and never shift width.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat and ring-bordered at rest. A shadow signals an element floats above the page; if it isn't floating, it gets a ring, not a shadow.", "section": "elevation" },
+      { "name": "The Field-Target Rule", "body": "On the worker clock flow, primary actions and inputs are ≥56px tall and full-width. The compact 32px controls are for the admin desktop only.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep steel blue as the single brand hue — primary actions and active state only.",
+      "Do keep backgrounds pure white / near-black; let the blue and type carry the mood.",
+      "Do set all times, durations, and PINs in Geist Mono with tabular figures.",
+      "Do separate surfaces with a 1px ring; reserve shadow for true overlays.",
+      "Do use ≥56px full-width targets on the worker clock flow.",
+      "Do pair every status color with a text label and an icon.",
+      "Do keep Muted Ink at oklch(0.48 …) or darker so secondary text clears 4.5:1."
+    ],
+    "donts": [
+      "Don't build the generic purple-gradient SaaS look — no gradient text, no glassmorphism, no hero-metric template.",
+      "Don't drift toward cluttered enterprise time-tracker density (ADP / Kronos).",
+      "Don't add playful or childish cuteness — no mascots, toy rounding, or emoji UI.",
+      "Don't fall back to anonymous stock shadcn gray; this system has a committed color.",
+      "Don't brighten the brand into cobalt SaaS-blue — keep it deep and steel (chroma ≤ ~0.14).",
+      "Don't convey shift status with color alone.",
+      "Don't use the compact 32px controls for the primary worker clock actions.",
+      "Don't use border-left/border-right color stripes as accents on cards or alerts."
+    ]
+  }
+}

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node -e \"if(process.env.WORKERS_CI==='1'&&!process.env.OPENNEXT_POSTBUILD){require('child_process').execSync('opennextjs-cloudflare build',{stdio:'inherit',env:{...process.env,OPENNEXT_POSTBUILD:'1'}})}\"",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
