@@ -1,0 +1,16 @@
+# Local development secrets for the Cloudflare Workers runtime.
+# Copy to `.dev.vars` (which is gitignored) and fill in real values.
+#
+# In production these are set with Wrangler, not committed:
+#   wrangler secret put ADMIN_PASSWORD
+#   wrangler secret put SESSION_SECRET
+
+# Which Next.js env file set to load locally (OpenNext). Usually "development".
+NEXTJS_ENV=development
+
+# Single shared admin password (ADR-0003). Used by verifyAdminPassword().
+ADMIN_PASSWORD=change-me
+
+# Secret key for signing the admin session cookie (HMAC-SHA256).
+# Use a long random string, e.g. `openssl rand -base64 32`.
+SESSION_SECRET=change-me-to-a-long-random-string

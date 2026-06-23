@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "clock-in-app",
+  // Custom worker entry: re-uses the OpenNext-generated fetch handler and adds
+  // a `scheduled` handler for the hourly incomplete-shift sweep.
+  // See https://opennext.js.org/cloudflare/howtos/custom-worker
+  "main": "./custom-worker.ts",
+  "compatibility_date": "2026-06-20",
+  "compatibility_flags": [
+    // Required by OpenNext / Next.js for Node.js built-ins.
+    "nodejs_compat",
+    // Lets the app fetch its own public URLs.
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      // Must match "name" above.
+      "service": "clock-in-app"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  // D1 database binding. Access via getCloudflareContext().env.DB.
+  // database_id is a placeholder for local dev; replace with the real id from
+  // `wrangler d1 create clock-in-app-db` before deploying to remote.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "clock-in-app-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  // Hourly cron: a later agent implements the incomplete-shift sweep in
+  // custom-worker.ts's scheduled() handler.
+  "triggers": {
+    "crons": ["0 * * * *"]
+  }
+}
