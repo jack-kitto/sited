@@ -16,7 +16,12 @@ import {
 import {
   canAutoRequestLocation,
   classifyBrowserGeoError,
+  getGeoRecoveryHint,
+  getSafariLocationTip,
+  isGeoSecureContext,
+  isStandalonePWA,
   requestBrowserGeoFix,
+  type BrowserGeoError,
   type BrowserGeoFix,
 } from "@/lib/browser-geolocation";
 import { COMPANY_TZ } from "@/lib/time";
@@ -56,7 +61,13 @@ type ClockResult = {
 type SiteStatus = "loading" | "ready" | "error";
 type SiteErrorKind = "not_found" | "none_nearby";
 type NearestMiss = { name: string; distanceM: number };
-type GeoStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable";
+type GeoStatus =
+  | "idle"
+  | "requesting"
+  | "granted"
+  | "denied"
+  | "timeout"
+  | "unavailable";
 
 function formatTime(ms: number): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -87,21 +98,45 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [result, setResult] = React.useState<ClockResult | null>(null);
 
-  const requestLocation = React.useCallback(async () => {
+  const geoRequestRef = React.useRef<Promise<BrowserGeoFix> | null>(null);
+
+  // iOS Safari requires getCurrentPosition in the same synchronous turn as the
+  // tap — keep this handler non-async and kick off the request immediately.
+  const requestLocation = React.useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGeoStatus("unavailable");
       return;
     }
-    setGeoStatus("requesting");
-    try {
-      const nextFix = await requestBrowserGeoFix();
-      setFix(nextFix);
-      setGeoStatus("granted");
-    } catch (err) {
+    if (!isGeoSecureContext()) {
       setFix(null);
-      const kind = classifyBrowserGeoError(err);
-      setGeoStatus(kind === "denied" ? "denied" : "unavailable");
+      setGeoStatus("unavailable");
+      return;
     }
+
+    // Kick off geolocation before setState — Safari drops user activation if
+    // anything (even a React update) runs between the tap and getCurrentPosition.
+    const pending = requestBrowserGeoFix();
+    geoRequestRef.current = pending;
+    setGeoStatus("requesting");
+
+    pending
+      .then((nextFix) => {
+        if (geoRequestRef.current !== pending) return;
+        setFix(nextFix);
+        setGeoStatus("granted");
+      })
+      .catch((err) => {
+        if (geoRequestRef.current !== pending) return;
+        setFix(null);
+        const kind = classifyBrowserGeoError(err);
+        if (kind === "denied") {
+          setGeoStatus("denied");
+        } else if (kind === "timeout") {
+          setGeoStatus("timeout");
+        } else {
+          setGeoStatus("unavailable");
+        }
+      });
   }, []);
 
   // Load the Roster. Only auto-request location when permission is already
@@ -447,6 +482,7 @@ function LocationStatus({
   fix: GeoFix | null;
   onRetry: () => void;
 }) {
+  const standalone = isStandalonePWA();
   if (status === "granted" && fix) {
     return (
       <div className="bg-success/10 flex items-center justify-between rounded-lg px-3 py-2">
@@ -471,11 +507,15 @@ function LocationStatus({
   }
 
   if (status === "idle") {
+    const safariTip = getSafariLocationTip();
     return (
       <div className="space-y-2 rounded-lg bg-muted/60 px-3 py-3">
         <p className="text-sm text-muted-foreground">
           Tap below to share your location and confirm you&apos;re on site.
         </p>
+        {safariTip ? (
+          <p className="text-muted-foreground text-xs">{safariTip}</p>
+        ) : null}
         <Button size="sm" className="w-full" onClick={onRetry}>
           <MapPinIcon className="size-3.5" />
           Share location
@@ -484,19 +524,26 @@ function LocationStatus({
     );
   }
 
-  // denied or unavailable
-  const denied = status === "denied";
+  const errorKind: BrowserGeoError =
+    status === "denied"
+      ? "denied"
+      : status === "timeout"
+        ? "timeout"
+        : "unavailable";
+
   return (
     <Alert variant="destructive">
       <MapPinOffIcon />
       <AlertTitle>
-        {denied ? "Location permission needed" : "Location unavailable"}
+        {errorKind === "denied"
+          ? "Location permission needed"
+          : errorKind === "timeout"
+            ? "Location timed out"
+            : "Location unavailable"}
       </AlertTitle>
       <AlertDescription className="space-y-2">
         <span>
-          {denied
-            ? "Clock-in requires your location to confirm you're on site. Enable location for this site in your browser, then retry."
-            : "We couldn't get a GPS fix. Move to an open area and retry — clock-in is refused without a location."}
+          {getGeoRecoveryHint({ error: errorKind, standalone })}
         </span>
         <Button
           size="sm"
