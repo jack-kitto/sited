@@ -12,11 +12,11 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 p-6">
       <div className="max-w-xl text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">Clock-In App</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Sited</h1>
         <p className="text-muted-foreground mt-3">
-          Workers clock in and out of fixed sites by scanning a Site Tag,
-          picking their name and entering a personal PIN, and confirming they
-          are physically on site.
+          Workers clock in and out of fixed sites. The app picks the site from
+          their location, they pick their name and enter a personal PIN, and a
+          hard geofence confirms they are physically on site.
         </p>
       </div>
 
@@ -25,7 +25,8 @@ export default function Home() {
           <CardHeader>
             <CardTitle>Clock</CardTitle>
             <CardDescription>
-              For workers. Open this by scanning a Site Tag, which links to
+              For workers. Open the clock page and it picks your site from your
+              location — or scan a Site Tag link to
               <code className="mx-1">/clock?site=&lt;siteId&gt;</code>.
             </CardDescription>
           </CardHeader>

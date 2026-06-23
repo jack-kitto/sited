@@ -7,7 +7,7 @@
 #   Alice -> 1234, Bob -> 5678, Carol -> 4321
 set -euo pipefail
 
-DB_NAME="clock-in-app-db"
+DB_NAME="sited-db"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SEED_SQL="${SCRIPT_DIR}/../src/db/seed.sql"
 

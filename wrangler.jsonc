@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "clock-in-app",
+  "name": "sited",
   // Custom worker entry: re-uses the OpenNext-generated fetch handler and adds
   // a `scheduled` handler for the hourly incomplete-shift sweep.
   // See https://opennext.js.org/cloudflare/howtos/custom-worker
@@ -20,7 +20,7 @@
     {
       "binding": "WORKER_SELF_REFERENCE",
       // Must match "name" above.
-      "service": "clock-in-app"
+      "service": "sited"
     }
   ],
   "images": {
@@ -32,11 +32,11 @@
   },
   // D1 database binding. Access via getCloudflareContext().env.DB.
   // database_id is a placeholder for local dev; replace with the real id from
-  // `wrangler d1 create clock-in-app-db` before deploying to remote.
+  // `wrangler d1 create sited-db` before deploying to remote.
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "clock-in-app-db",
+      "database_name": "sited-db",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "./migrations"
     }

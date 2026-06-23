@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clock-In App",
+  title: "Sited",
   description:
-    "Workers clock in and out of fixed sites by scanning a Site Tag, entering a PIN, and confirming they are on site.",
+    "Workers clock in and out of fixed sites. Sited picks the site from the worker's location, takes a PIN, and confirms they are on site.",
 };
 
 export default function RootLayout({

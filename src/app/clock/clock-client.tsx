@@ -48,6 +48,8 @@ type ClockResult = {
 };
 
 type SiteStatus = "loading" | "ready" | "error";
+type SiteErrorKind = "not_found" | "none_nearby";
+type NearestMiss = { name: string; distanceM: number };
 type GeoStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable";
 
 function formatTime(ms: number): string {
@@ -61,9 +63,12 @@ function formatTime(ms: number): string {
 
 export function ClockClient({ siteId }: { siteId: string | null }) {
   const [site, setSite] = React.useState<PublicSite | null>(null);
-  const [siteStatus, setSiteStatus] = React.useState<SiteStatus>(
-    siteId ? "loading" : "error"
-  );
+  const [siteStatus, setSiteStatus] = React.useState<SiteStatus>("loading");
+  // Why the site lookup failed: a bad Site Tag link vs. no site near the
+  // worker's current location (the two need different copy + recovery).
+  const [siteErrorKind, setSiteErrorKind] =
+    React.useState<SiteErrorKind>("not_found");
+  const [nearestMiss, setNearestMiss] = React.useState<NearestMiss | null>(null);
 
   const [roster, setRoster] = React.useState<RosterEntry[]>([]);
 
@@ -101,25 +106,9 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
     );
   }, []);
 
-  // Load Site + Roster, and kick off the location request.
+  // Load the Roster and kick off the location request on mount.
   React.useEffect(() => {
-    if (!siteId) return;
-
     let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}`);
-        if (!res.ok) throw new Error("not found");
-        const data = (await res.json()) as PublicSite;
-        if (!cancelled) {
-          setSite(data);
-          setSiteStatus("ready");
-        }
-      } catch {
-        if (!cancelled) setSiteStatus("error");
-      }
-    })();
 
     (async () => {
       try {
@@ -140,7 +129,65 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [siteId, requestLocation]);
+  }, [requestLocation]);
+
+  // Resolve which Site this is: an explicit Site Tag link (?site=) wins;
+  // otherwise we pick the Site from the worker's GPS fix once we have one.
+  React.useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (siteId) {
+        try {
+          const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}`);
+          if (!res.ok) throw new Error("not found");
+          const data = (await res.json()) as PublicSite;
+          if (!cancelled) {
+            setSite(data);
+            setSiteStatus("ready");
+          }
+        } catch {
+          if (!cancelled) {
+            setSiteErrorKind("not_found");
+            setSiteStatus("error");
+          }
+        }
+        return;
+      }
+
+      // Location-based: wait until we have a fix, then ask which site we're at.
+      if (!fix) return;
+      try {
+        const res = await fetch(
+          `/api/sites/nearest?lat=${fix.lat}&lng=${fix.lng}`
+        );
+        const data = (await res.json()) as PublicSite & {
+          error?: string;
+          nearest?: NearestMiss;
+        };
+        if (cancelled) return;
+        if (res.status === 404) {
+          setNearestMiss(data.nearest ?? null);
+          setSiteErrorKind("none_nearby");
+          setSiteStatus("error");
+          return;
+        }
+        if (!res.ok) throw new Error("failed");
+        setSite({ id: data.id, name: data.name });
+        setSiteStatus("ready");
+      } catch {
+        if (!cancelled) {
+          setNearestMiss(null);
+          setSiteErrorKind("none_nearby");
+          setSiteStatus("error");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [siteId, fix]);
 
   const canSubmit =
     siteStatus === "ready" &&
@@ -238,18 +285,43 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
 
   // ---- Invalid / missing Site --------------------------------------------
   if (siteStatus === "error") {
+    const noneNearby = siteErrorKind === "none_nearby";
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
           <div className="mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-            <AlertTriangleIcon className="size-8" />
+            {noneNearby ? (
+              <MapPinOffIcon className="size-8" />
+            ) : (
+              <AlertTriangleIcon className="size-8" />
+            )}
           </div>
-          <CardTitle className="text-xl">Site not found</CardTitle>
+          <CardTitle className="text-xl">
+            {noneNearby ? "No site nearby" : "Site not found"}
+          </CardTitle>
           <CardDescription>
-            This link isn&apos;t pointing at a valid Site. Scan the Site Tag
-            again, or ask your admin for help.
+            {noneNearby
+              ? nearestMiss
+                ? `The closest site, ${nearestMiss.name}, is ${nearestMiss.distanceM}m away — too far to clock in. Move closer and retry.`
+                : "You don't seem to be at any site. Move to your site and retry."
+              : "This link isn't pointing at a valid Site. Scan the Site Tag again, or ask your admin for help."}
           </CardDescription>
         </CardHeader>
+        {noneNearby && (
+          <CardContent className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSiteStatus("loading");
+                setNearestMiss(null);
+                requestLocation();
+              }}
+            >
+              <RefreshCwIcon className="size-3.5" />
+              Retry location
+            </Button>
+          </CardContent>
+        )}
       </Card>
     );
   }

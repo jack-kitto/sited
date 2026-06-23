@@ -1,8 +1,9 @@
-# Clock-In App
+# Sited
 
-Workers clock in and out of fixed **Sites** by scanning a **Site Tag** (QR/NFC)
-that opens the app at `/clock?site=<siteId>`, picking their name from the
-**Roster**, and entering a personal **PIN**. A hard geofence (default 100m,
+Workers clock in and out of fixed **Sites**. The clock page picks the Site from
+the worker's **location** automatically (a **Site Tag** QR/NFC link to
+`/clock?site=<siteId>` still works as an override), then they pick their name
+from the **Roster** and enter a personal **PIN**. A hard geofence (default 100m,
 ADR-0002) requires the worker to be on site for both clock-in and clock-out.
 An **Admin** manages everything behind a single shared password.
 
@@ -96,7 +97,7 @@ node scripts/hash-pin.mjs 1234 5678 4321
 real database and update the id:
 
 ```bash
-wrangler d1 create clock-in-app-db        # copy the printed database_id into wrangler.jsonc
+wrangler d1 create sited-db        # copy the printed database_id into wrangler.jsonc
 npm run db:migrate:remote                 # apply migrations to remote
 ```
 

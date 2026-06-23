@@ -1,5 +1,5 @@
 {
-  "name": "clock-in-app",
+  "name": "sited",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,8 +13,8 @@
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply clock-in-app-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply clock-in-app-db --remote",
+    "db:migrate:local": "wrangler d1 migrations apply sited-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply sited-db --remote",
     "seed:local": "bash scripts/seed-local.sh"
   },
   "dependencies": {
