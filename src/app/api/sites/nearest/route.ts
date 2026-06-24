@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
  *
  * Scoped by Company Slug (ADR-0004): only the resolved Company's Sites are
  * considered, so a worker never resolves to (or learns about) another Company's
- * Site. An unknown or malformed slug is a 400.
+ * Site. An unknown or malformed slug is treated exactly like a Company with no
+ * Site in range (the generic 404 below), so this endpoint can't be used to
+ * enumerate which Company Slugs exist on the platform.
  *
  * Returns the closest Site whose distance is within its own geofence radius as
  * `{ id, name, distanceM }`. Like /api/sites/[id], we never expose Site
@@ -40,16 +42,14 @@ export async function GET(req: Request) {
   }
 
   try {
+    // An unknown/malformed slug yields an empty Site set, which falls through to
+    // the same generic "not within range" 404 as a real Company with no nearby
+    // Site — so this endpoint never reveals whether a Company Slug exists.
     const company = await getCompanyBySlug(slug);
-    if (!company) {
-      return Response.json({ error: "Unknown company." }, { status: 400 });
-    }
-
     const db = getDb();
-    const all = await db
-      .select()
-      .from(sites)
-      .where(eq(sites.companyId, company.id));
+    const all = company
+      ? await db.select().from(sites).where(eq(sites.companyId, company.id))
+      : [];
 
     let nearest: { name: string; distanceM: number } | null = null;
     let inRange: { id: string; name: string; distanceM: number } | null = null;
