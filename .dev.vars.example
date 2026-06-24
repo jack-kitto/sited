@@ -8,7 +8,7 @@
 NEXTJS_ENV=development
 
 # Admin passwords are now per-Company, hashed in D1 (ADR-0004); there is no
-# global ADMIN_PASSWORD secret anymore.
+# global admin-password secret anymore.
 
 # Secret key for signing the admin session cookie (HMAC-SHA256).
 # Use a long random string, e.g. `openssl rand -base64 32`.

@@ -43,10 +43,13 @@ Re-run this whenever you change `wrangler.jsonc` or add a binding/secret.
 
 ## Secrets
 
-Two secrets are required today:
+One secret is required:
 
-- `ADMIN_PASSWORD` — the single shared admin password (ADR-0003; **removed when ADR-0004 lands** — each Company will have its own hashed admin password in D1).
-- `SESSION_SECRET` — key used to sign the admin session cookie (HMAC-SHA256); retained under ADR-0004, with `companyId` in the session payload.
+- `SESSION_SECRET` — key used to sign the admin session cookie (HMAC-SHA256).
+  Under ADR-0004 the session payload carries the Admin's `companyId`.
+
+Admin passwords are **per Company**, hashed in D1 (ADR-0004) and set via the
+provisioning CLI — there is no global `ADMIN_PASSWORD` secret anymore.
 
 **Local:** copy the example and fill it in (this file is gitignored):
 
@@ -54,10 +57,9 @@ Two secrets are required today:
 cp .dev.vars.example .dev.vars
 ```
 
-**Production:** set them with Wrangler (never commit secret values):
+**Production:** set the secret with Wrangler (never commit secret values):
 
 ```bash
-wrangler secret put ADMIN_PASSWORD
 wrangler secret put SESSION_SECRET
 ```
 
@@ -102,6 +104,51 @@ wrangler d1 create sited-db        # copy the printed database_id into wrangler.
 npm run db:migrate:remote                 # apply migrations to remote
 ```
 
+## Companies (multi-tenant)
+
+Sited serves multiple **Companies** (tenants) from one deployment, isolated at
+the row level in D1 (ADR-0004). Companies are **operator-provisioned** — there is
+no public signup. Workers and Admins reach a Company by its immutable **Company
+Slug** in the URL:
+
+- `/{slug}/clock` — that Company's clock-in flow.
+- `/{slug}/admin` — that Company's admin, behind its own password.
+- A **Site Tag** (`/clock?site=<siteId>`) needs no slug — the Site implies the
+  Company.
+- `/`, bare `/clock`, and bare `/admin` are generic: they prompt for a Company
+  Slug and forward to the scoped route.
+
+### Provision a Company
+
+Run the Platform Operator CLI (writes a `companies` row directly to D1, default
+**local**; Node 22 required for Wrangler):
+
+```bash
+npm run provision -- \
+  --slug acme \
+  --name "Acme Construction Ltd" \
+  --timezone Asia/Tokyo \
+  --password "a-strong-password"
+```
+
+Slug rules (immutable, public): lowercase letters, digits, and hyphens; 2–32
+chars; no leading/trailing hyphen; unique across the platform. The admin
+password is PBKDF2-SHA256 hashed in the same format the app verifies; an Admin
+can later change the Company Name, password, and timezone in
+`/{slug}/admin/settings` — the slug is permanent.
+
+### First Company (`wl`) — set its password
+
+The migration backfills existing single-tenant data into a first Company
+(slug `wl`) with a **locked** (empty) admin password. The Platform Operator must
+set it before that Company's Admin can sign in:
+
+```bash
+npm run provision -- --set-password --slug wl --password "a-strong-password"
+```
+
+Pass `--remote` to either command to target production D1 instead of local.
+
 ## Develop
 
 ```bash
@@ -122,7 +169,7 @@ npm run upload       # build and upload a new version without deploying
 
 ```
 src/
-  app/            # App Router pages (landing, /clock, /admin stubs)
+  app/            # App Router pages (landing, /[slug]/clock, /[slug]/admin, Site-Tag /clock)
   components/ui/  # shadcn/ui components
   db/             # Drizzle schema, client (getDb), seed.sql
   lib/            # shared libs: geo, pin, auth, time, ids, types
@@ -134,10 +181,12 @@ migrations/       # D1 migrations (also drizzle-kit output dir)
 scripts/          # hash-pin.mjs, seed-local.sh
 ```
 
-## Notes / TODO for feature agents
+## PWA / install
 
-- The `/clock` and `/admin` pages are **stubs**; the data layer, shared libs,
-  schema, and config are the foundation.
-- The hourly cron (`custom-worker.ts` `scheduled`) is wired but empty — it
-  should sweep Open Shifts past midnight and auto-close them as Incomplete
-  (see [`src/lib/time.ts`](./src/lib/time.ts)).
+The app ships a web manifest ([`src/app/manifest.ts`](./src/app/manifest.ts)).
+Because one manifest is shared by every Company, the installed PWA cannot
+auto-scope to one, so `start_url` is `/` (the generic landing page): launching
+the installed app lands the Worker on the Company Slug entry, and they tap
+through to `/{slug}/clock`. A **Site Tag** deep link (`/clock?site=`) still opens
+a usable, Company-scoped clock flow directly because it falls within the
+manifest `scope` (`/`).

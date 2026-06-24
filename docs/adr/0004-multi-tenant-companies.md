@@ -32,4 +32,4 @@ Domain terms: `CONTEXT.md`.
 - `ADMIN_PASSWORD` is removed from env/secrets; `SESSION_SECRET` remains. `.dev.vars.example` and deploy docs must be updated when implemented.
 - The Incomplete Shift cron in `custom-worker.ts` must join Shifts to Companies and use each Company's timezone instead of a hardcoded `COMPANY_TZ`.
 - Company Slug is immutable; display name, admin password, and timezone are Admin self-service. Duplicate Worker names on a Roster are allowed — the Admin disambiguates in the name field.
-- PWA `start_url` (`/clock`) must be revisited — bare `/clock` no longer auto-scopes a Company without a Site Tag or slug prompt.
+- PWA `start_url` is `/` (issue 0008): one manifest is shared by every Company, so the installed PWA cannot auto-scope to one. Launch lands on the generic landing page, where a Worker enters their Company Slug and is routed to `/{slug}/clock`; the bare `/clock` and `/admin` prompts do the same. Site Tag deep links (`/clock?site=`) still open a usable, Company-scoped clock flow because they fall within the manifest `scope` (`/`). (Per-Company installs would need per-Company manifests/subdomains — deferred with subdomain routing.)

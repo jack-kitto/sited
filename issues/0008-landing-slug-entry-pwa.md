@@ -25,11 +25,11 @@ open in ADR-0004 and needs a design decision before implementation.
 
 ## Acceptance criteria
 
-- [ ] `/` is a generic landing page with a working Company Slug entry path into clock and admin
-- [ ] PWA `start_url` and post-launch Company scoping behavior are decided and implemented
-- [ ] `ADMIN_PASSWORD` is removed from `.dev.vars.example`
-- [ ] README / deploy docs describe per-Company provisioning and authentication
-- [ ] Installing the PWA and launching it leads a Worker to a usable, Company-scoped clock path
+- [x] `/` is a generic landing page with a working Company Slug entry path into clock and admin
+- [x] PWA `start_url` and post-launch Company scoping behavior are decided and implemented
+- [x] `ADMIN_PASSWORD` is removed from `.dev.vars.example`
+- [x] README / deploy docs describe per-Company provisioning and authentication
+- [x] Installing the PWA and launching it leads a Worker to a usable, Company-scoped clock path
 
 ## Blocked by
 

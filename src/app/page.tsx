@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ClockIcon, MapPinIcon, ShieldCheckIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MapPinIcon } from "lucide-react";
+import { LandingEntry } from "./landing-entry";
 
 export default function Home() {
   return (
@@ -19,34 +18,13 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <Button
-          asChild
-          className="h-14 w-full text-base font-semibold"
-          size="lg"
-        >
-          <Link href="/clock">
-            <ClockIcon className="size-5" />
-            Clock in / out
-          </Link>
-        </Button>
-        <Button
-          asChild
-          variant="outline"
-          className="h-12 w-full text-base"
-          size="lg"
-        >
-          <Link href="/admin">
-            <ShieldCheckIcon className="size-5" />
-            Admin
-          </Link>
-        </Button>
-      </div>
+      <LandingEntry />
 
       <p className="text-muted-foreground text-center text-xs text-balance">
-        For workers: tap{" "}
-        <span className="text-foreground font-medium">Clock in / out</span>, or
-        scan your Site Tag. Admins manage the roster, sites, and shifts.
+        Enter your Company Slug to reach your company&apos;s clock-in or admin
+        page. Workers with a{" "}
+        <span className="text-foreground font-medium">Site Tag</span> can scan it
+        instead — it knows your company.
       </p>
     </main>
   );

@@ -10,7 +10,12 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "Clock in and out of your site. Sited finds your site from your location, takes your PIN, and confirms you're on site.",
     id: "/",
-    start_url: "/clock",
+    // Multi-tenant (ADR-0004, issue 0008): one manifest is shared by every
+    // Company, so the installed PWA cannot auto-scope to one. Launch lands on the
+    // generic landing page, where the Worker types their Company Slug and we
+    // route to `/{slug}/clock`. Site Tag deep links (`/clock?site=`) still open
+    // a usable, Company-scoped clock flow because they fall within `scope: "/"`.
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
