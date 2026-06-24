@@ -1,8 +1,6 @@
-import { asc } from "drizzle-orm";
-import { notFound, redirect } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
 import { getDb, sites } from "@/db";
-import { readAdminSession } from "@/lib/auth";
-import { getCompanyBySlug } from "@/lib/tenancy";
+import { requireCompanyAdmin } from "@/app/admin/_lib/page-guard";
 import { listShifts } from "@/app/admin/_lib/shifts-query";
 import {
   buildShiftQueryString,
@@ -32,23 +30,23 @@ export default async function AdminShiftsPage({
   searchParams: SearchParams;
 }) {
   const { slug } = await params;
-  const company = await getCompanyBySlug(slug);
-  if (!company) notFound();
-
-  const session = await readAdminSession();
-  if (!session) redirect(`/${slug}/admin/login`);
+  const { company } = await requireCompanyAdmin(slug);
 
   const raw = await searchParams;
 
   const db = getDb();
-  const siteList = await db.select().from(sites).orderBy(asc(sites.name));
+  const siteList = await db
+    .select()
+    .from(sites)
+    .where(eq(sites.companyId, company.id))
+    .orderBy(asc(sites.name));
 
   const query = resolveShiftQuery(raw, {
     validSiteIds: siteList.map((s) => s.id),
     defaultPreset: "today",
   });
 
-  const shiftRows = await listShifts({
+  const shiftRows = await listShifts(company.id, {
     siteId: query.siteId,
     status: query.status,
     fromMs: query.fromMs,

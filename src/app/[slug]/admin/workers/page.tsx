@@ -1,8 +1,6 @@
-import { asc } from "drizzle-orm";
-import { notFound, redirect } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
 import { getDb, workers } from "@/db";
-import { readAdminSession } from "@/lib/auth";
-import { getCompanyBySlug } from "@/lib/tenancy";
+import { requireCompanyAdmin } from "@/app/admin/_lib/page-guard";
 import { WorkersManager } from "./workers-manager";
 
 // Reads cookies + the Cloudflare context at request time; never static.
@@ -16,11 +14,7 @@ export default async function AdminWorkersPage({
   params: Params;
 }) {
   const { slug } = await params;
-  const company = await getCompanyBySlug(slug);
-  if (!company) notFound();
-
-  const session = await readAdminSession();
-  if (!session) redirect(`/${slug}/admin/login`);
+  const { company } = await requireCompanyAdmin(slug);
 
   const db = getDb();
   const rows = await db
@@ -30,6 +24,7 @@ export default async function AdminWorkersPage({
       active: workers.active,
     })
     .from(workers)
+    .where(eq(workers.companyId, company.id))
     .orderBy(asc(workers.name));
 
   return (

@@ -1,9 +1,7 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
 import { getDb, sites } from "@/db";
-import { readAdminSession } from "@/lib/auth";
-import { getCompanyBySlug } from "@/lib/tenancy";
+import { requireCompanyAdmin } from "@/app/admin/_lib/page-guard";
 import { SitesManager } from "./sites-manager";
 
 // Reads cookies + the Cloudflare context at request time; never static.
@@ -22,14 +20,14 @@ type Params = Promise<{ slug: string }>;
 
 export default async function AdminSitesPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const company = await getCompanyBySlug(slug);
-  if (!company) notFound();
-
-  const session = await readAdminSession();
-  if (!session) redirect(`/${slug}/admin/login`);
+  const { company } = await requireCompanyAdmin(slug);
 
   const db = getDb();
-  const rows = await db.select().from(sites).orderBy(asc(sites.name));
+  const rows = await db
+    .select()
+    .from(sites)
+    .where(eq(sites.companyId, company.id))
+    .orderBy(asc(sites.name));
   const origin = await getOrigin();
 
   return (

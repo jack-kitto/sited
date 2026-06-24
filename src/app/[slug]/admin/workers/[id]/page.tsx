@@ -1,10 +1,9 @@
-import { asc, eq } from "drizzle-orm";
-import { notFound, redirect } from "next/navigation";
+import { and, asc, eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 import { getDb, sites, workers } from "@/db";
-import { readAdminSession } from "@/lib/auth";
-import { getCompanyBySlug } from "@/lib/tenancy";
+import { requireCompanyAdmin } from "@/app/admin/_lib/page-guard";
 import { listShifts } from "@/app/admin/_lib/shifts-query";
 import {
   buildShiftQueryString,
@@ -35,25 +34,31 @@ export default async function WorkerShiftsPage({
   searchParams: SearchParams;
 }) {
   const { slug, id } = await params;
-  const company = await getCompanyBySlug(slug);
-  if (!company) notFound();
-
-  const session = await readAdminSession();
-  if (!session) redirect(`/${slug}/admin/login`);
+  const { company } = await requireCompanyAdmin(slug);
 
   const raw = await searchParams;
 
   const db = getDb();
-  const [worker] = await db.select().from(workers).where(eq(workers.id, id)).limit(1);
+  // Scope the worker lookup to the session Company: a Worker belonging to
+  // another Company must read as not-found, never render its shifts (ADR-0004).
+  const [worker] = await db
+    .select()
+    .from(workers)
+    .where(and(eq(workers.id, id), eq(workers.companyId, company.id)))
+    .limit(1);
   if (!worker) notFound();
 
-  const siteList = await db.select().from(sites).orderBy(asc(sites.name));
+  const siteList = await db
+    .select()
+    .from(sites)
+    .where(eq(sites.companyId, company.id))
+    .orderBy(asc(sites.name));
 
   const query = resolveShiftQuery(raw, {
     validSiteIds: siteList.map((s) => s.id),
   });
 
-  const shiftRows = await listShifts({
+  const shiftRows = await listShifts(company.id, {
     workerId: id,
     siteId: query.siteId,
     status: query.status,

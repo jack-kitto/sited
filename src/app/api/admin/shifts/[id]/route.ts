@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, shifts } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { nowMs } from "@/lib/time";
@@ -68,11 +68,14 @@ export async function PATCH(
     updates.status = body.status as ShiftStatus;
   }
 
+  // Scope the UPDATE to the session Company so a Shift belonging to another
+  // Company can never be edited/resolved by id (cross-tenant write, ADR-0004). A
+  // mismatched id matches no row and returns 404 with no mutation.
   const db = getDb();
   const updated = await db
     .update(shifts)
     .set(updates)
-    .where(eq(shifts.id, id))
+    .where(and(eq(shifts.id, id), eq(shifts.companyId, session.companyId)))
     .returning();
 
   if (updated.length === 0) {

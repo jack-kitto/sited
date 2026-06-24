@@ -15,7 +15,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const query = resolveShiftQuery(params);
 
-  const rows = await listShifts({
+  const rows = await listShifts(session.companyId, {
     siteId: query.siteId,
     status: query.status,
     workerId: query.workerId,

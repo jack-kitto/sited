@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, workers } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { hashPin } from "@/lib/pin";
@@ -21,6 +21,7 @@ export async function GET(): Promise<Response> {
       createdAt: workers.createdAt,
     })
     .from(workers)
+    .where(eq(workers.companyId, session.companyId))
     .orderBy(asc(workers.name));
 
   return Response.json({ workers: rows });

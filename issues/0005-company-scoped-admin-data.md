@@ -22,11 +22,11 @@ slice is specifically about closing that across every admin endpoint.
 
 ## Acceptance criteria
 
-- [ ] Admin Sites, Workers, Shifts, and summary endpoints return only the session Company's rows
-- [ ] CSV export contains only the session Company's Shifts
-- [ ] Creating a Site or Worker stamps the session's `companyId` (client cannot override it)
-- [ ] Editing/resolving a Site, Worker, or Shift by id is refused when it belongs to another Company
-- [ ] An Admin for Company A cannot read or mutate any of Company B's data through any admin endpoint
+- [x] Admin Sites, Workers, Shifts, and summary endpoints return only the session Company's rows
+- [x] CSV export contains only the session Company's Shifts
+- [x] Creating a Site or Worker stamps the session's `companyId` (client cannot override it)
+- [x] Editing/resolving a Site, Worker, or Shift by id is refused when it belongs to another Company
+- [x] An Admin for Company A cannot read or mutate any of Company B's data through any admin endpoint
 
 ## Blocked by
 

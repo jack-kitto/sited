@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, workers } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { hashPin } from "@/lib/pin";
@@ -54,11 +54,14 @@ export async function PATCH(
     return Response.json({ error: "No fields to update" }, { status: 400 });
   }
 
+  // Scope the UPDATE to the session Company so a Worker belonging to another
+  // Company can never be edited by id (cross-tenant write, ADR-0004). A
+  // mismatched id matches no row and returns 404 with no mutation.
   const db = getDb();
   const updated = await db
     .update(workers)
     .set(updates)
-    .where(eq(workers.id, id))
+    .where(and(eq(workers.id, id), eq(workers.companyId, session.companyId)))
     .returning({
       id: workers.id,
       name: workers.name,

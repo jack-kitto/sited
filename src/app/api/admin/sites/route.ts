@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, sites } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { newId } from "@/lib/ids";
@@ -12,7 +12,11 @@ export async function GET(): Promise<Response> {
   if (!session) return new Response("Unauthorized", { status: 401 });
 
   const db = getDb();
-  const rows = await db.select().from(sites).orderBy(asc(sites.name));
+  const rows = await db
+    .select()
+    .from(sites)
+    .where(eq(sites.companyId, session.companyId))
+    .orderBy(asc(sites.name));
   return Response.json({ sites: rows });
 }
 

@@ -41,7 +41,7 @@ export async function GET(req: Request): Promise<Response> {
   const params = Object.fromEntries(new URL(req.url).searchParams);
   const query = resolveShiftQuery(params);
 
-  const rows = await listShifts({
+  const rows = await listShifts(session.companyId, {
     siteId: query.siteId,
     status: query.status,
     workerId: query.workerId,

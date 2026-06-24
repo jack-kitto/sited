@@ -32,11 +32,19 @@ export type ShiftFilters = {
   toMsExclusive?: number;
 };
 
-/** List Shifts (newest clock-in first) joined with Worker + Site names. */
-export async function listShifts(filters: ShiftFilters = {}): Promise<ShiftRow[]> {
+/**
+ * List Shifts (newest clock-in first) joined with Worker + Site names, scoped to
+ * a single Company. `companyId` is required and always applied
+ * (`eq(shifts.companyId, companyId)`) so an admin read can never span tenants — a
+ * missed predicate here is a cross-tenant data leak (ADR-0004).
+ */
+export async function listShifts(
+  companyId: string,
+  filters: ShiftFilters = {}
+): Promise<ShiftRow[]> {
   const db = getDb();
 
-  const conditions = [];
+  const conditions = [eq(shifts.companyId, companyId)];
   if (filters.siteId) conditions.push(eq(shifts.siteId, filters.siteId));
   if (filters.status) conditions.push(eq(shifts.status, filters.status));
   if (filters.workerId) conditions.push(eq(shifts.workerId, filters.workerId));
