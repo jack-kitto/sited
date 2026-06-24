@@ -38,15 +38,15 @@ export function ShiftFilters({
   status,
   from,
   to,
-  basePath = "/admin",
+  basePath,
 }: {
   sites: SiteOption[];
   siteId: string | null;
   status: string | null;
   from: string | null;
   to: string | null;
-  /** Where to push the updated query (so this works on worker detail pages too). */
-  basePath?: string;
+  /** Where to push the updated query (the slug-scoped admin shifts route). */
+  basePath: string;
 }) {
   const router = useRouter();
 

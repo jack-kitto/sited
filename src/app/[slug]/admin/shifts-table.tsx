@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { ShiftStatus } from "@/lib/types";
-import type { ShiftRow } from "./_lib/shifts-query";
-import { formatTs, formatDistance, formatDuration, workedMs } from "./_lib/format";
+import type { ShiftRow } from "@/app/admin/_lib/shifts-query";
+import {
+  formatTs,
+  formatDistance,
+  formatDuration,
+  workedMs,
+} from "@/app/admin/_lib/format";
 import { EditShiftDialog } from "./edit-shift-dialog";
 
 function StatusBadge({ status }: { status: ShiftStatus }) {
@@ -54,6 +59,7 @@ export function ShiftsTable({
   linkQuery?: string;
 }) {
   const router = useRouter();
+  const { slug } = useParams<{ slug: string }>();
 
   if (shifts.length === 0) {
     return (
@@ -65,7 +71,7 @@ export function ShiftsTable({
 
   function openWorker(workerId: string) {
     const qs = linkQuery ? `?${linkQuery}` : "";
-    router.push(`/admin/workers/${workerId}${qs}`);
+    router.push(`/${slug}/admin/workers/${workerId}${qs}`);
   }
 
   return (

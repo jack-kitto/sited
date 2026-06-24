@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
-import type { ShiftRow } from "./_lib/shifts-query";
-import { formatDuration, workedMs } from "./_lib/format";
+import type { ShiftRow } from "@/app/admin/_lib/shifts-query";
+import { formatDuration, workedMs } from "@/app/admin/_lib/format";
 
 /**
  * Aggregate totals for the currently-filtered set of Shifts. Open shifts have

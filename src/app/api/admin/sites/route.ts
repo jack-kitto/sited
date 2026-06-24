@@ -2,7 +2,6 @@ import { asc } from "drizzle-orm";
 import { getDb, sites } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { newId } from "@/lib/ids";
-import { LEGACY_ADMIN_COMPANY_ID } from "@/lib/tenancy";
 
 /**
  * GET /api/admin/sites
@@ -68,8 +67,7 @@ export async function POST(request: Request): Promise<Response> {
   const id = newId("site");
   await db.insert(sites).values({
     id,
-    // TODO(issue 0004): scope to the admin session's Company instead.
-    companyId: LEGACY_ADMIN_COMPANY_ID,
+    companyId: session.companyId,
     name,
     latitude,
     longitude,

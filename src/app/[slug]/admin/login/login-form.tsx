@@ -14,7 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function LoginForm() {
+export function LoginForm({
+  slug,
+  companyName,
+}: {
+  slug: string;
+  companyName: string;
+}) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +34,7 @@ export function LoginForm() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ slug, password }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as {
@@ -39,7 +45,7 @@ export function LoginForm() {
         return;
       }
       // Full reload so the new session cookie is picked up by server guards.
-      router.replace("/admin");
+      router.replace(`/${slug}/admin`);
       router.refresh();
     } catch {
       setError("Network error — please try again");
@@ -52,8 +58,8 @@ export function LoginForm() {
       <CardHeader>
         <CardTitle>Admin sign in</CardTitle>
         <CardDescription>
-          Enter the shared admin password to manage the roster, sites, and
-          shifts.
+          Enter the shared admin password for {companyName} to manage its roster,
+          sites, and shifts.
         </CardDescription>
       </CardHeader>
       <CardContent>

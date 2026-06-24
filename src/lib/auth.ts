@@ -1,10 +1,14 @@
 import { cookies } from "next/headers";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { verifyPin } from "@/lib/pin";
+import type { Company } from "@/db";
 
 /**
- * Admin authentication: a single shared password (ADR-0003). On success we set
- * a signed, httpOnly session cookie (HMAC-SHA256 via Web Crypto) keyed by
- * env.SESSION_SECRET. There are no per-admin accounts.
+ * Admin authentication: a shared password per Company (ADR-0004, superseding
+ * ADR-0003's single global password). On success we set a signed, httpOnly
+ * session cookie (HMAC-SHA256 via Web Crypto) keyed by env.SESSION_SECRET; the
+ * payload carries the authenticated Company so every downstream admin request is
+ * scoped to one Company. There are no per-admin accounts.
  */
 
 export const ADMIN_COOKIE_NAME = "admin_session";
@@ -12,6 +16,10 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 export type AdminSession = {
   role: "admin";
+  /** The authenticated Company this session is scoped to. */
+  companyId: string;
+  /** The authenticated Company's public Company Slug. */
+  slug: string;
   /** Issued-at, epoch ms. */
   iat: number;
   /** Expiry, epoch ms. */
@@ -68,13 +76,18 @@ async function sign(payloadB64: string, secret: string): Promise<string> {
 }
 
 /**
- * Verify a plaintext admin password against env.ADMIN_PASSWORD using a
- * constant-time comparison.
+ * Verify a plaintext admin password against a specific Company's stored hashed
+ * admin password (ADR-0004). A Company with a locked (empty / malformed) hash
+ * can never authenticate: `verifyPin` returns false for any non-`pbkdf2$...`
+ * string, including the empty hash the migration backfills onto the first
+ * Company until the Platform Operator sets a password.
  */
-export async function verifyAdminPassword(pw: string): Promise<boolean> {
-  const expected = env().ADMIN_PASSWORD;
-  if (!expected) return false;
-  return timingSafeEqual(utf8(pw), utf8(expected));
+export async function verifyCompanyAdminPassword(
+  company: Company,
+  password: string
+): Promise<boolean> {
+  if (!password) return false;
+  return verifyPin(password, company.adminPasswordHash);
 }
 
 /** Serialize + sign a session into a `<payloadB64>.<sigB64>` token. */
@@ -107,6 +120,11 @@ async function decodeSession(
       new TextDecoder().decode(base64urlToBytes(payloadB64))
     ) as AdminSession;
     if (session.role !== "admin") return null;
+    // A valid session must be Company-scoped (ADR-0004). Tokens minted before
+    // per-Company auth (no companyId/slug) are rejected so the guard always has
+    // a Company to scope to.
+    if (typeof session.companyId !== "string" || !session.companyId) return null;
+    if (typeof session.slug !== "string" || !session.slug) return null;
     if (typeof session.exp !== "number" || session.exp < Date.now()) return null;
     return session;
   } catch {
@@ -115,14 +133,16 @@ async function decodeSession(
 }
 
 /**
- * Create an admin session and set the signed httpOnly cookie. Call only after
- * `verifyAdminPassword` succeeds.
+ * Create an admin session scoped to a Company and set the signed httpOnly
+ * cookie. Call only after `verifyCompanyAdminPassword(company, …)` succeeds.
  */
-export async function createAdminSession(): Promise<void> {
+export async function createAdminSession(company: Company): Promise<void> {
   const secret = env().SESSION_SECRET;
   const now = Date.now();
   const session: AdminSession = {
     role: "admin",
+    companyId: company.id,
+    slug: company.slug,
     iat: now,
     exp: now + SESSION_TTL_MS,
   };

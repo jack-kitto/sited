@@ -23,12 +23,12 @@ reads/writes by `companyId` is issue 0005.
 
 ## Acceptance criteria
 
-- [ ] `/{slug}/admin` login verifies the password against that Company's hashed admin password
-- [ ] A Company's password authenticates only that Company (Company A's password fails for Company B)
-- [ ] The admin session token carries `companyId`
-- [ ] The global `ADMIN_PASSWORD` secret is removed from code; `SESSION_SECRET` remains
-- [ ] Bare `/admin` (no slug) prompts for a Company Slug
-- [ ] Admin route guard rejects requests without a valid Company-scoped session
+- [x] `/{slug}/admin` login verifies the password against that Company's hashed admin password
+- [x] A Company's password authenticates only that Company (Company A's password fails for Company B)
+- [x] The admin session token carries `companyId`
+- [x] The global `ADMIN_PASSWORD` secret is removed from code; `SESSION_SECRET` remains
+- [x] Bare `/admin` (no slug) prompts for a Company Slug
+- [x] Admin route guard rejects requests without a valid Company-scoped session
 
 ## Blocked by
 

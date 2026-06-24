@@ -23,8 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SHIFT_STATUSES, type ShiftStatus } from "@/lib/types";
-import type { ShiftRow } from "./_lib/shifts-query";
-import { msToLocalInput, localInputToMs } from "./_lib/time-input";
+import type { ShiftRow } from "@/app/admin/_lib/shifts-query";
+import { msToLocalInput, localInputToMs } from "@/app/admin/_lib/time-input";
 
 export function EditShiftDialog({ shift }: { shift: ShiftRow }) {
   const router = useRouter();

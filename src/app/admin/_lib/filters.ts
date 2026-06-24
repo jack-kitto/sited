@@ -11,8 +11,9 @@ import {
 
 /**
  * Raw, untrusted shift-filter values as they arrive from the URL search params.
- * Shared by the /admin shifts page, the /admin/workers/[id] detail page, and
- * the CSV export route so the three always agree on what "the current view" is.
+ * Shared by the /{slug}/admin shifts page, the /{slug}/admin/workers/[id]
+ * detail page, and the CSV export route so the three always agree on what "the
+ * current view" is.
  */
 export type RawShiftParams = {
   siteId?: string;

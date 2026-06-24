@@ -1,15 +1,26 @@
 import { asc } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDb, workers } from "@/db";
 import { readAdminSession } from "@/lib/auth";
+import { getCompanyBySlug } from "@/lib/tenancy";
 import { WorkersManager } from "./workers-manager";
 
 // Reads cookies + the Cloudflare context at request time; never static.
 export const dynamic = "force-dynamic";
 
-export default async function AdminWorkersPage() {
+type Params = Promise<{ slug: string }>;
+
+export default async function AdminWorkersPage({
+  params,
+}: {
+  params: Params;
+}) {
+  const { slug } = await params;
+  const company = await getCompanyBySlug(slug);
+  if (!company) notFound();
+
   const session = await readAdminSession();
-  if (!session) redirect("/admin/login");
+  if (!session) redirect(`/${slug}/admin/login`);
 
   const db = getDb();
   const rows = await db

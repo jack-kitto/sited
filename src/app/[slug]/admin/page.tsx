@@ -1,21 +1,22 @@
-import { asc, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
-import { getDb, sites, workers } from "@/db";
+import { getDb, sites } from "@/db";
 import { readAdminSession } from "@/lib/auth";
-import { listShifts } from "../../_lib/shifts-query";
-import { buildShiftQueryString, resolveShiftQuery } from "../../_lib/filters";
-import { ShiftFilters } from "../../shift-filters";
-import { ShiftsTable } from "../../shifts-table";
-import { ShiftsSummary } from "../../shifts-summary";
-import { Badge } from "@/components/ui/badge";
+import { getCompanyBySlug } from "@/lib/tenancy";
+import { listShifts } from "@/app/admin/_lib/shifts-query";
+import {
+  buildShiftQueryString,
+  resolveShiftQuery,
+} from "@/app/admin/_lib/filters";
+import { ShiftFilters } from "./shift-filters";
+import { ShiftsTable } from "./shifts-table";
+import { ShiftsSummary } from "./shifts-summary";
 import { Button } from "@/components/ui/button";
 
 // Reads cookies + the Cloudflare context at request time; never static.
 export const dynamic = "force-dynamic";
 
-type Params = Promise<{ id: string }>;
+type Params = Promise<{ slug: string }>;
 type SearchParams = Promise<{
   siteId?: string;
   status?: string;
@@ -23,40 +24,38 @@ type SearchParams = Promise<{
   to?: string;
 }>;
 
-export default async function WorkerShiftsPage({
+export default async function AdminShiftsPage({
   params,
   searchParams,
 }: {
   params: Params;
   searchParams: SearchParams;
 }) {
-  const session = await readAdminSession();
-  if (!session) redirect("/admin/login");
+  const { slug } = await params;
+  const company = await getCompanyBySlug(slug);
+  if (!company) notFound();
 
-  const { id } = await params;
+  const session = await readAdminSession();
+  if (!session) redirect(`/${slug}/admin/login`);
+
   const raw = await searchParams;
 
   const db = getDb();
-  const [worker] = await db.select().from(workers).where(eq(workers.id, id)).limit(1);
-  if (!worker) notFound();
-
   const siteList = await db.select().from(sites).orderBy(asc(sites.name));
 
   const query = resolveShiftQuery(raw, {
     validSiteIds: siteList.map((s) => s.id),
+    defaultPreset: "today",
   });
 
   const shiftRows = await listShifts({
-    workerId: id,
     siteId: query.siteId,
     status: query.status,
     fromMs: query.fromMs,
     toMsExclusive: query.toMsExclusive,
   });
 
-  const basePath = `/admin/workers/${id}`;
   const exportQs = buildShiftQueryString({
-    workerId: id,
     siteId: query.siteId,
     status: query.status,
     from: query.range.from,
@@ -65,21 +64,12 @@ export default async function WorkerShiftsPage({
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6">
-      <Link
-        href="/admin"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-4" /> All shifts
-      </Link>
-
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading flex items-center gap-2 text-xl font-semibold">
-            {worker.name}
-            {!worker.active ? <Badge variant="outline">Inactive</Badge> : null}
-          </h1>
+        <div>
+          <h1 className="font-heading text-xl font-semibold">Shifts</h1>
           <p className="text-sm text-muted-foreground">
-            Shifts from {query.range.from} to {query.range.to}.
+            Review, edit, and resolve shifts. Click a row to see that worker&apos;s
+            history. Showing {query.range.from} to {query.range.to}.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -93,12 +83,12 @@ export default async function WorkerShiftsPage({
         status={query.status ?? null}
         from={query.range.from}
         to={query.range.to}
-        basePath={basePath}
+        basePath={`/${slug}/admin`}
       />
 
       <ShiftsSummary shifts={shiftRows} />
 
-      <ShiftsTable shifts={shiftRows} linkToWorker={false} />
+      <ShiftsTable shifts={shiftRows} linkToWorker linkQuery={exportQs} />
     </main>
   );
 }
