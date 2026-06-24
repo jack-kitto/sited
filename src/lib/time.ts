@@ -1,11 +1,18 @@
 /**
- * Time helpers for the single company timezone.
+ * Calendar-day time helpers (ADR-0004: per-Company timezone).
  *
- * The business runs in one timezone (CONTEXT.md / ADRs), so all calendar-day
- * and auto-close math is done in COMPANY_TZ. We use Intl.DateTimeFormat for
- * timezone math to avoid extra dependencies.
+ * Each Company has its own IANA timezone, so every calendar-day and auto-close
+ * calculation takes an explicit `timeZone` argument — there is no single global
+ * source of truth for calendar math. Callers thread the relevant Company's
+ * `timezone` (the admin session Company, or each Shift's Company in the cron
+ * sweep). We use Intl.DateTimeFormat for timezone math to avoid extra deps.
  */
 
+/**
+ * Display-only fallback timezone for flows that have no resolved Company yet
+ * (e.g. the bare clock UI before the Site lookup returns). This MUST NOT drive
+ * any per-Company calendar math — those paths always pass an explicit timezone.
+ */
 export const COMPANY_TZ = "Asia/Tokyo";
 
 /** Hour/minute an Incomplete Shift is auto-closed at, on its own day. */
@@ -71,7 +78,7 @@ function zonedWallTimeToMs(
   timeZone: string
 ): number {
   const guess = Date.UTC(year, month - 1, day, hour, minute, 0);
-  // Two passes handle DST transitions; COMPANY_TZ has none but stay correct.
+  // Two passes handle DST transitions correctly for any timezone.
   let offset = tzOffsetMs(guess, timeZone);
   let result = guess - offset;
   offset = tzOffsetMs(result, timeZone);
@@ -81,53 +88,59 @@ function zonedWallTimeToMs(
 
 /**
  * The auto-close instant for a Shift that clocked in at `clockInMs`: 16:30 on
- * that shift's OWN calendar day in COMPANY_TZ, returned as epoch ms.
+ * that shift's OWN calendar day in the Company's `timeZone`, returned as epoch
+ * ms.
  */
-export function autoCloseAtFor(clockInMs: number): number {
-  const { year, month, day } = partsInTz(clockInMs, COMPANY_TZ);
+export function autoCloseAtFor(clockInMs: number, timeZone: string): number {
+  const { year, month, day } = partsInTz(clockInMs, timeZone);
   return zonedWallTimeToMs(
     year,
     month,
     day,
     AUTO_CLOSE_HOUR,
     AUTO_CLOSE_MINUTE,
-    COMPANY_TZ
+    timeZone
   );
 }
 
 /** Comparable integer for a calendar day, e.g. 2026-06-23 -> 20260623. */
-function dayOrdinal(ms: number): number {
-  const { year, month, day } = partsInTz(ms, COMPANY_TZ);
+function dayOrdinal(ms: number, timeZone: string): number {
+  const { year, month, day } = partsInTz(ms, timeZone);
   return year * 10000 + month * 100 + day;
 }
 
 /**
- * True if `nowMs` falls on a later COMPANY_TZ calendar day than `openedMs`
- * (i.e. the Open Shift has crossed midnight and is now Incomplete).
+ * True if `now` falls on a later calendar day (in the Company's `timeZone`) than
+ * `openedMs` (i.e. the Open Shift has crossed midnight and is now Incomplete).
  */
-export function isPastMidnight(openedMs: number, now: number): boolean {
-  return dayOrdinal(now) > dayOrdinal(openedMs);
+export function isPastMidnight(
+  openedMs: number,
+  now: number,
+  timeZone: string
+): boolean {
+  return dayOrdinal(now, timeZone) > dayOrdinal(openedMs, timeZone);
 }
 
 // ---------------------------------------------------------------------------
-// Calendar-date helpers (all in COMPANY_TZ).
+// Calendar-date helpers (in a Company's timezone).
 //
 // Used by the Admin date-range filtering. A "company date" is a plain
-// year/month/day in COMPANY_TZ, serialized as an ISO `YYYY-MM-DD` string in the
-// URL. Asia/Tokyo has no DST, but the conversions below stay correct regardless.
+// year/month/day in the Company's timezone, serialized as an ISO `YYYY-MM-DD`
+// string in the URL. The conversions below stay correct across DST regardless
+// of the timezone passed.
 // ---------------------------------------------------------------------------
 
 export type CompanyDate = { year: number; month: number; day: number };
 
-/** The COMPANY_TZ calendar date an instant falls on. */
-export function companyDateOf(ms: number): CompanyDate {
-  const p = partsInTz(ms, COMPANY_TZ);
+/** The calendar date an instant falls on, in the Company's `timeZone`. */
+export function companyDateOf(ms: number, timeZone: string): CompanyDate {
+  const p = partsInTz(ms, timeZone);
   return { year: p.year, month: p.month, day: p.day };
 }
 
-/** Epoch ms for 00:00 (COMPANY_TZ) on the given calendar date. */
-export function startOfCompanyDayMs(d: CompanyDate): number {
-  return zonedWallTimeToMs(d.year, d.month, d.day, 0, 0, COMPANY_TZ);
+/** Epoch ms for 00:00 (in the Company's `timeZone`) on the given date. */
+export function startOfCompanyDayMs(d: CompanyDate, timeZone: string): number {
+  return zonedWallTimeToMs(d.year, d.month, d.day, 0, 0, timeZone);
 }
 
 /** Serialize a company date as `YYYY-MM-DD`. */
@@ -169,12 +182,13 @@ function weekday(d: CompanyDate): number {
   return new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay();
 }
 
-/** Resolve a named preset to an inclusive company-date range. */
+/** Resolve a named preset to an inclusive company-date range in `timeZone`. */
 export function presetRange(
   preset: DateRangePreset,
+  timeZone: string,
   now: number = Date.now()
 ): DateRangeStrings {
-  const today = companyDateOf(now);
+  const today = companyDateOf(now, timeZone);
 
   if (preset === "today") {
     const s = formatCompanyDate(today);
@@ -215,10 +229,11 @@ export function presetRange(
  */
 export function companyDateRangeToMs(
   from: CompanyDate,
-  to: CompanyDate
+  to: CompanyDate,
+  timeZone: string
 ): { fromMs: number; toMsExclusive: number } {
   return {
-    fromMs: startOfCompanyDayMs(from),
-    toMsExclusive: startOfCompanyDayMs(addCompanyDays(to, 1)),
+    fromMs: startOfCompanyDayMs(from, timeZone),
+    toMsExclusive: startOfCompanyDayMs(addCompanyDays(to, 1), timeZone),
   };
 }

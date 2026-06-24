@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
+import { getCompanyById } from "@/lib/tenancy";
 import { listShifts } from "@/app/admin/_lib/shifts-query";
 import { resolveShiftQuery } from "@/app/admin/_lib/filters";
 
@@ -12,8 +13,12 @@ export async function GET(request: NextRequest): Promise<Response> {
   const session = await requireAdmin();
   if (!session) return new Response("Unauthorized", { status: 401 });
 
+  // Calendar-day filtering uses the session Company's own timezone (ADR-0004).
+  const company = await getCompanyById(session.companyId);
+  if (!company) return new Response("Unauthorized", { status: 401 });
+
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  const query = resolveShiftQuery(params);
+  const query = resolveShiftQuery(params, company.timezone);
 
   const rows = await listShifts(session.companyId, {
     siteId: query.siteId,

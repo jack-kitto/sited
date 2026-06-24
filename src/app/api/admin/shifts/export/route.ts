@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { getCompanyById } from "@/lib/tenancy";
 import { listShifts } from "@/app/admin/_lib/shifts-query";
 import {
   formatTs,
@@ -30,16 +31,23 @@ function parseDevice(json: string | null): DeviceInfo | null {
 
 /**
  * GET /api/admin/shifts/export
- * Streams the currently-filtered Shifts as a CSV attachment, with times in
- * COMPANY_TZ and Worked Hours per row plus a total. Honors the same
- * siteId/status/workerId/from/to filters as the dashboard. Guarded.
+ * Streams the currently-filtered Shifts as a CSV attachment, with times in the
+ * session Company's timezone (ADR-0004) and Worked Hours per row plus a total.
+ * Honors the same siteId/status/workerId/from/to filters as the dashboard.
+ * Guarded.
  */
 export async function GET(req: Request): Promise<Response> {
   const session = await requireAdmin();
   if (!session) return new Response("Unauthorized", { status: 401 });
 
+  // Calendar-day filtering + timestamp formatting use the session Company's own
+  // timezone (ADR-0004), not a global constant.
+  const company = await getCompanyById(session.companyId);
+  if (!company) return new Response("Unauthorized", { status: 401 });
+  const timeZone = company.timezone;
+
   const params = Object.fromEntries(new URL(req.url).searchParams);
-  const query = resolveShiftQuery(params);
+  const query = resolveShiftQuery(params, timeZone);
 
   const rows = await listShifts(session.companyId, {
     siteId: query.siteId,
@@ -52,8 +60,8 @@ export async function GET(req: Request): Promise<Response> {
   const header = [
     "Worker",
     "Site",
-    "Clock-in (Asia/Tokyo)",
-    "Clock-out (Asia/Tokyo)",
+    `Clock-in (${timeZone})`,
+    `Clock-out (${timeZone})`,
     "Worked hours",
     "Status",
     "Clock-in distance (m)",
@@ -76,8 +84,8 @@ export async function GET(req: Request): Promise<Response> {
       [
         csvCell(r.workerName ?? r.workerId),
         csvCell(r.siteName ?? r.siteId),
-        csvCell(formatTs(r.clockInAt)),
-        csvCell(r.clockOutAt == null ? "" : formatTs(r.clockOutAt)),
+        csvCell(formatTs(r.clockInAt, timeZone)),
+        csvCell(r.clockOutAt == null ? "" : formatTs(r.clockOutAt, timeZone)),
         csvCell(ms == null ? "" : formatDuration(ms)),
         csvCell(r.status),
         csvCell(formatDistance(r.clockInDistanceM)),

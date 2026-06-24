@@ -54,7 +54,7 @@ export default async function WorkerShiftsPage({
     .where(eq(sites.companyId, company.id))
     .orderBy(asc(sites.name));
 
-  const query = resolveShiftQuery(raw, {
+  const query = resolveShiftQuery(raw, company.timezone, {
     validSiteIds: siteList.map((s) => s.id),
   });
 
@@ -106,11 +106,16 @@ export default async function WorkerShiftsPage({
         from={query.range.from}
         to={query.range.to}
         basePath={basePath}
+        timeZone={company.timezone}
       />
 
       <ShiftsSummary shifts={shiftRows} />
 
-      <ShiftsTable shifts={shiftRows} linkToWorker={false} />
+      <ShiftsTable
+        shifts={shiftRows}
+        timeZone={company.timezone}
+        linkToWorker={false}
+      />
     </main>
   );
 }

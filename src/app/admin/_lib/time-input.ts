@@ -1,9 +1,7 @@
-import { COMPANY_TZ } from "@/lib/time";
-
 /**
  * Conversions between an `<input type="datetime-local">` value (a bare
  * wall-clock string with no timezone) and an epoch-ms instant, interpreting
- * the wall-clock time as COMPANY_TZ.
+ * the wall-clock time in the session Company's `timeZone` (ADR-0004).
  *
  * This mirrors the zoned-time math in `@/lib/time` (which keeps those helpers
  * private), so the Admin edits times in company-local terms.
@@ -18,9 +16,9 @@ type Parts = {
   second: number;
 };
 
-function partsInTz(ms: number): Parts {
+function partsInTz(ms: number, timeZone: string): Parts {
   const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: COMPANY_TZ,
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -45,8 +43,8 @@ function partsInTz(ms: number): Parts {
   };
 }
 
-function tzOffsetMs(utcMs: number): number {
-  const p = partsInTz(utcMs);
+function tzOffsetMs(utcMs: number, timeZone: string): number {
+  const p = partsInTz(utcMs, timeZone);
   const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
   return asUtc - utcMs;
 }
@@ -55,17 +53,23 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** Epoch ms -> "YYYY-MM-DDTHH:mm" wall-clock string in COMPANY_TZ. */
-export function msToLocalInput(ms: number | null | undefined): string {
+/** Epoch ms -> "YYYY-MM-DDTHH:mm" wall-clock string in the Company's `timeZone`. */
+export function msToLocalInput(
+  ms: number | null | undefined,
+  timeZone: string
+): string {
   if (ms == null) return "";
-  const p = partsInTz(ms);
+  const p = partsInTz(ms, timeZone);
   return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(
     p.minute
   )}`;
 }
 
-/** "YYYY-MM-DDTHH:mm" interpreted in COMPANY_TZ -> epoch ms (or null). */
-export function localInputToMs(value: string | null | undefined): number | null {
+/** "YYYY-MM-DDTHH:mm" in the Company's `timeZone` -> epoch ms (or null). */
+export function localInputToMs(
+  value: string | null | undefined,
+  timeZone: string
+): number | null {
   if (!value) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
   if (!m) return null;
@@ -79,9 +83,9 @@ export function localInputToMs(value: string | null | undefined): number | null 
     0
   );
   // Two passes settle the offset correctly across any DST boundary.
-  let offset = tzOffsetMs(guess);
+  let offset = tzOffsetMs(guess, timeZone);
   let result = guess - offset;
-  offset = tzOffsetMs(result);
+  offset = tzOffsetMs(result, timeZone);
   result = guess - offset;
   return result;
 }

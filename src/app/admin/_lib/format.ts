@@ -1,26 +1,30 @@
-import { COMPANY_TZ } from "@/lib/time";
-
 /**
- * Admin-side formatting helpers. All calendar/clock formatting happens in
- * COMPANY_TZ so the Admin always sees company-local times regardless of where
- * they (or the Worker runtime) are physically located.
+ * Admin-side formatting helpers. Timestamps are rendered in the session
+ * Company's timezone (ADR-0004) so the Admin always sees company-local times
+ * regardless of where they (or the Worker runtime) are physically located.
  */
 
-const DISPLAY_FMT = new Intl.DateTimeFormat("en-CA", {
-  timeZone: COMPANY_TZ,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
-
-/** Human-readable timestamp in COMPANY_TZ, or an em dash when absent. */
-export function formatTs(ms: number | null | undefined): string {
+/**
+ * Human-readable timestamp in the Company's `timeZone`, or an em dash when
+ * absent.
+ */
+export function formatTs(
+  ms: number | null | undefined,
+  timeZone: string
+): string {
   if (ms == null) return "—";
   // en-CA renders as "2026-06-23, 16:30"; normalise the comma out.
-  return DISPLAY_FMT.format(ms).replace(",", "");
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(ms)
+    .replace(",", "");
 }
 
 /** Distance in meters rounded to a whole number, or an em dash when absent. */

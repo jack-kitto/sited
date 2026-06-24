@@ -34,12 +34,16 @@ export type ResolvedShiftQuery = {
 };
 
 /**
- * Normalize raw params into a validated query. When no date range is given the
- * view falls back to `defaultPreset` (the current month unless overridden), in
- * Asia/Tokyo. `validSiteIds`, when provided, drops a `siteId` that doesn't exist.
+ * Normalize raw params into a validated query. All calendar-day math (the
+ * default range, "today" bounds, and the epoch-ms interval) is computed in the
+ * session Company's `timeZone` (ADR-0004) — never a global constant. When no
+ * date range is given the view falls back to `defaultPreset` (the current month
+ * unless overridden). `validSiteIds`, when provided, drops a `siteId` that
+ * doesn't exist.
  */
 export function resolveShiftQuery(
   params: RawShiftParams,
+  timeZone: string,
   opts: { validSiteIds?: string[]; defaultPreset?: DateRangePreset } = {}
 ): ResolvedShiftQuery {
   const status =
@@ -60,11 +64,14 @@ export function resolveShiftQuery(
   if (fromValid && toValid) {
     range = { from: fromValid, to: toValid };
   } else if (fromValid && !toValid) {
-    range = { from: fromValid, to: formatCompanyDate(companyDateOf(Date.now())) };
+    range = {
+      from: fromValid,
+      to: formatCompanyDate(companyDateOf(Date.now(), timeZone)),
+    };
   } else if (!fromValid && toValid) {
     range = { from: toValid, to: toValid };
   } else {
-    range = presetRange(opts.defaultPreset ?? "this_month");
+    range = presetRange(opts.defaultPreset ?? "this_month", timeZone);
   }
 
   // Guard against an inverted range (from after to).
@@ -72,7 +79,8 @@ export function resolveShiftQuery(
 
   const { fromMs, toMsExclusive } = companyDateRangeToMs(
     parseCompanyDate(range.from)!,
-    parseCompanyDate(range.to)!
+    parseCompanyDate(range.to)!,
+    timeZone
   );
 
   return {

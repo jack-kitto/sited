@@ -4,13 +4,15 @@ import { companies, getDb, sites } from "@/db";
 /**
  * GET /api/sites/[id]
  *
- * Returns PUBLIC Site info for the clock page as `{ id, name, companySlug }`.
- * We deliberately expose no coordinates or radius — the geofence check
- * (ADR-0002) happens server-side, so the client never needs them.
+ * Returns PUBLIC Site info for the clock page as
+ * `{ id, name, companySlug, companyTimeZone }`. We deliberately expose no
+ * coordinates or radius — the geofence check (ADR-0002) happens server-side, so
+ * the client never needs them.
  *
  * The Site Tag flow (`/clock?site=<id>`, no slug in the URL) reads `companySlug`
  * to learn which Company owns this Site, then loads that Company's Roster
- * (ADR-0004). Joining Companies keeps the Company inferred from the Site itself.
+ * (ADR-0004). `companyTimeZone` lets that flow render clock times in the right
+ * timezone too. Joining Companies keeps the Company inferred from the Site itself.
  */
 export async function GET(
   _req: Request,
@@ -25,6 +27,7 @@ export async function GET(
         id: sites.id,
         name: sites.name,
         companySlug: companies.slug,
+        companyTimeZone: companies.timezone,
       })
       .from(sites)
       .innerJoin(companies, eq(sites.companyId, companies.id))

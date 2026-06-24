@@ -49,10 +49,13 @@ function DurationCell({ shift }: { shift: ShiftRow }) {
 
 export function ShiftsTable({
   shifts,
+  timeZone,
   linkToWorker = true,
   linkQuery = "",
 }: {
   shifts: ShiftRow[];
+  /** The session Company's IANA timezone; all times render in it (ADR-0004). */
+  timeZone: string;
   /** When true, clicking a row opens that Worker's detail page. */
   linkToWorker?: boolean;
   /** Query string (without leading `?`) to carry onto the worker detail page. */
@@ -106,8 +109,8 @@ export function ShiftsTable({
                 {s.workerName ?? s.workerId}
               </TableCell>
               <TableCell>{s.siteName ?? s.siteId}</TableCell>
-              <TableCell>{formatTs(s.clockInAt)}</TableCell>
-              <TableCell>{formatTs(s.clockOutAt)}</TableCell>
+              <TableCell>{formatTs(s.clockInAt, timeZone)}</TableCell>
+              <TableCell>{formatTs(s.clockOutAt, timeZone)}</TableCell>
               <TableCell className="text-right tabular-nums">
                 <DurationCell shift={s} />
               </TableCell>
@@ -124,7 +127,7 @@ export function ShiftsTable({
                 className="text-right"
                 onClick={(e) => e.stopPropagation()}
               >
-                <EditShiftDialog shift={s} />
+                <EditShiftDialog shift={s} timeZone={timeZone} />
               </TableCell>
             </TableRow>
           ))}

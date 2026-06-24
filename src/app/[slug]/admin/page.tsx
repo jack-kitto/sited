@@ -41,7 +41,7 @@ export default async function AdminShiftsPage({
     .where(eq(sites.companyId, company.id))
     .orderBy(asc(sites.name));
 
-  const query = resolveShiftQuery(raw, {
+  const query = resolveShiftQuery(raw, company.timezone, {
     validSiteIds: siteList.map((s) => s.id),
     defaultPreset: "today",
   });
@@ -82,11 +82,17 @@ export default async function AdminShiftsPage({
         from={query.range.from}
         to={query.range.to}
         basePath={`/${slug}/admin`}
+        timeZone={company.timezone}
       />
 
       <ShiftsSummary shifts={shiftRows} />
 
-      <ShiftsTable shifts={shiftRows} linkToWorker linkQuery={exportQs} />
+      <ShiftsTable
+        shifts={shiftRows}
+        timeZone={company.timezone}
+        linkToWorker
+        linkQuery={exportQs}
+      />
     </main>
   );
 }

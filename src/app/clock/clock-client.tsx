@@ -69,9 +69,9 @@ type GeoStatus =
   | "timeout"
   | "unavailable";
 
-function formatTime(ms: number): string {
+function formatTime(ms: number, timeZone: string): string {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: COMPANY_TZ,
+    timeZone,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -81,6 +81,7 @@ function formatTime(ms: number): string {
 export function ClockClient({
   siteId,
   companySlug,
+  companyTimeZone = null,
 }: {
   siteId: string | null;
   // The Company this clock flow is scoped to. The slug-scoped page
@@ -88,6 +89,12 @@ export function ClockClient({
   // see that Company's data (ADR-0004). The bare Site-Tag flow (/clock?site=)
   // has no slug here; deriving its Company from the Site is issue 0003.
   companySlug: string | null;
+  // The scoped Company's IANA timezone, used only to DISPLAY clock times in
+  // company-local terms (ADR-0006). The slug-scoped page passes it directly; the
+  // Site-Tag flow learns it from the Site lookup below. Display-only — it never
+  // drives calendar math, which is all server-side. Falls back to COMPANY_TZ
+  // until a Company is resolved.
+  companyTimeZone?: string | null;
 }) {
   const [site, setSite] = React.useState<PublicSite | null>(null);
   const [siteStatus, setSiteStatus] = React.useState<SiteStatus>("loading");
@@ -97,6 +104,11 @@ export function ClockClient({
   const [siteCompanySlug, setSiteCompanySlug] = React.useState<string | null>(
     null
   );
+  // The scoped Company's timezone the Site-Tag flow learns from the Site lookup,
+  // mirroring `siteCompanySlug`. Used only for display formatting (ADR-0006).
+  const [siteCompanyTimeZone, setSiteCompanyTimeZone] = React.useState<
+    string | null
+  >(null);
   // Why the site lookup failed: a bad Site Tag link vs. no site near the
   // worker's current location (the two need different copy + recovery).
   const [siteErrorKind, setSiteErrorKind] =
@@ -160,6 +172,12 @@ export function ClockClient({
   // way the Roster and nearest-Site lookups only ever see this Company's data.
   const effectiveSlug = companySlug ?? siteCompanySlug;
 
+  // The timezone clock times are displayed in: the scoped Company's tz once
+  // known (prop on the slug page, Site lookup on the Site-Tag flow), falling
+  // back to COMPANY_TZ before then. Display-only (ADR-0006).
+  const displayTimeZone =
+    companyTimeZone ?? siteCompanyTimeZone ?? COMPANY_TZ;
+
   // Auto-request location once we know it won't surprise the worker — iOS
   // Safari blocks the prompt unless the call follows a tap, so we only do this
   // when permission is already granted.
@@ -217,12 +235,16 @@ export function ClockClient({
           if (!res.ok) throw new Error("not found");
           const data = (await res.json()) as PublicSite & {
             companySlug?: string;
+            companyTimeZone?: string;
           };
           if (!cancelled) {
             setSite({ id: data.id, name: data.name });
             // Infer the Company from the Site (ADR-0004): a Site Tag carries no
-            // slug, so this is how the no-slug flow scopes its Roster.
+            // slug, so this is how the no-slug flow scopes its Roster and learns
+            // the timezone to display clock times in (ADR-0006).
             if (data.companySlug) setSiteCompanySlug(data.companySlug);
+            if (data.companyTimeZone)
+              setSiteCompanyTimeZone(data.companyTimeZone);
             setSiteStatus("ready");
           }
         } catch {
@@ -307,8 +329,8 @@ export function ClockClient({
       setPin("");
       toast.success(
         data.action === "clocked_in"
-          ? `Clocked in at ${formatTime(data.at)}`
-          : `Clocked out at ${formatTime(data.at)}`,
+          ? `Clocked in at ${formatTime(data.at, displayTimeZone)}`
+          : `Clocked out at ${formatTime(data.at, displayTimeZone)}`,
         { id: toastId }
       );
     } catch {
@@ -351,7 +373,9 @@ export function ClockClient({
                 <LogOutIcon className="size-3" />
               )}
               {clockedIn ? "Clocked in" : "Clocked out"} at{" "}
-              <span className="text-data">{formatTime(result.at)}</span>
+              <span className="text-data">
+                {formatTime(result.at, displayTimeZone)}
+              </span>
             </Badge>
           </div>
           <p className="text-muted-foreground text-center text-sm">

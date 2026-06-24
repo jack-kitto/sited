@@ -26,28 +26,39 @@ import { SHIFT_STATUSES, type ShiftStatus } from "@/lib/types";
 import type { ShiftRow } from "@/app/admin/_lib/shifts-query";
 import { msToLocalInput, localInputToMs } from "@/app/admin/_lib/time-input";
 
-export function EditShiftDialog({ shift }: { shift: ShiftRow }) {
+export function EditShiftDialog({
+  shift,
+  timeZone,
+}: {
+  shift: ShiftRow;
+  /** The session Company's IANA timezone; edited times are in it (ADR-0004). */
+  timeZone: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [clockIn, setClockIn] = useState(msToLocalInput(shift.clockInAt));
-  const [clockOut, setClockOut] = useState(msToLocalInput(shift.clockOutAt));
+  const [clockIn, setClockIn] = useState(
+    msToLocalInput(shift.clockInAt, timeZone)
+  );
+  const [clockOut, setClockOut] = useState(
+    msToLocalInput(shift.clockOutAt, timeZone)
+  );
   const [status, setStatus] = useState<ShiftStatus>(shift.status);
   const [pending, setPending] = useState(false);
 
   function reset() {
-    setClockIn(msToLocalInput(shift.clockInAt));
-    setClockOut(msToLocalInput(shift.clockOutAt));
+    setClockIn(msToLocalInput(shift.clockInAt, timeZone));
+    setClockOut(msToLocalInput(shift.clockOutAt, timeZone));
     setStatus(shift.status);
   }
 
   async function save(override?: { status?: ShiftStatus }) {
     const nextStatus = override?.status ?? status;
-    const clockInAt = localInputToMs(clockIn);
+    const clockInAt = localInputToMs(clockIn, timeZone);
     if (clockInAt == null) {
       toast.error("A valid clock-in time is required");
       return;
     }
-    const clockOutAt = localInputToMs(clockOut);
+    const clockOutAt = localInputToMs(clockOut, timeZone);
 
     setPending(true);
     try {
@@ -93,8 +104,8 @@ export function EditShiftDialog({ shift }: { shift: ShiftRow }) {
           <DialogTitle>Edit shift</DialogTitle>
           <DialogDescription>
             {(shift.workerName ?? shift.workerId)} ·{" "}
-            {(shift.siteName ?? shift.siteId)}. Times are in company time
-            (Asia/Tokyo).
+            {(shift.siteName ?? shift.siteId)}. Times are in company time (
+            {timeZone}).
           </DialogDescription>
         </DialogHeader>
 

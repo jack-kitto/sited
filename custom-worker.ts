@@ -14,17 +14,20 @@
 import { default as handler } from "./.open-next/worker.js";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
-import { schema, shifts } from "@/db/schema";
+import { schema, shifts, companies } from "@/db/schema";
 import { nowMs, autoCloseAtFor, isPastMidnight } from "@/lib/time";
 
 export default {
   fetch: handler.fetch,
 
   // Incomplete-shift sweep. Runs hourly (see triggers.crons). Finds Open
-  // Shifts that have crossed midnight in COMPANY_TZ and auto-closes each one at
-  // 16:30 on its own day with status "incomplete" and no clock-out location
-  // (CONTEXT.md). We build the Drizzle client directly from `env` because the
-  // getCloudflareContext() ALS may not be populated in a scheduled handler.
+  // Shifts that have crossed midnight and auto-closes each one at 16:30 on its
+  // own day with status "incomplete" and no clock-out location (CONTEXT.md).
+  // Each Shift is evaluated in ITS OWN Company's timezone (ADR-0004): we join
+  // Shifts -> Companies so the midnight cutoff and 16:30 auto-close are computed
+  // per Company, never against one global constant. We build the Drizzle client
+  // directly from `env` because the getCloudflareContext() ALS may not be
+  // populated in a scheduled handler.
   async scheduled(
     _event: ScheduledController,
     env: CloudflareEnv,
@@ -35,18 +38,23 @@ export default {
       const now = nowMs();
 
       const openShifts = await db
-        .select()
+        .select({
+          id: shifts.id,
+          clockInAt: shifts.clockInAt,
+          timeZone: companies.timezone,
+        })
         .from(shifts)
+        .innerJoin(companies, eq(shifts.companyId, companies.id))
         .where(eq(shifts.status, "open"));
 
       let closed = 0;
       for (const shift of openShifts) {
-        if (!isPastMidnight(shift.clockInAt, now)) continue;
+        if (!isPastMidnight(shift.clockInAt, now, shift.timeZone)) continue;
         await db
           .update(shifts)
           .set({
             status: "incomplete",
-            clockOutAt: autoCloseAtFor(shift.clockInAt),
+            clockOutAt: autoCloseAtFor(shift.clockInAt, shift.timeZone),
             updatedAt: now,
           })
           .where(eq(shifts.id, shift.id));

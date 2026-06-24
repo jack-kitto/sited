@@ -33,7 +33,11 @@ export default async function CompanyClockPage({
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center p-4 sm:p-6">
-      <ClockClient siteId={site ?? null} companySlug={company.slug} />
+      <ClockClient
+        siteId={site ?? null}
+        companySlug={company.slug}
+        companyTimeZone={company.timezone}
+      />
     </main>
   );
 }

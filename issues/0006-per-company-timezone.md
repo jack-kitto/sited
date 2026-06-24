@@ -22,11 +22,11 @@ calculation must instead use the relevant Company's timezone:
 
 ## Acceptance criteria
 
-- [ ] `COMPANY_TZ` is no longer used as a global source of truth for calendar logic
-- [ ] Admin date-range filters and exports use the session Company's timezone
-- [ ] The cron sweep evaluates each Open Shift's midnight cutoff and 16:30 auto-close in its own Company's timezone
-- [ ] Two Companies in different timezones each auto-close and filter correctly and independently
-- [ ] Worked Hours / Incomplete Shift cutoffs remain correct per Company
+- [x] `COMPANY_TZ` is no longer used as a global source of truth for calendar logic
+- [x] Admin date-range filters and exports use the session Company's timezone
+- [x] The cron sweep evaluates each Open Shift's midnight cutoff and 16:30 auto-close in its own Company's timezone
+- [x] Two Companies in different timezones each auto-close and filter correctly and independently
+- [x] Worked Hours / Incomplete Shift cutoffs remain correct per Company
 
 ## Blocked by
 

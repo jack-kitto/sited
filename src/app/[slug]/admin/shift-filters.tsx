@@ -39,6 +39,7 @@ export function ShiftFilters({
   from,
   to,
   basePath,
+  timeZone,
 }: {
   sites: SiteOption[];
   siteId: string | null;
@@ -47,6 +48,8 @@ export function ShiftFilters({
   to: string | null;
   /** Where to push the updated query (the slug-scoped admin shifts route). */
   basePath: string;
+  /** The session Company's IANA timezone; quick-range presets resolve in it. */
+  timeZone: string;
 }) {
   const router = useRouter();
 
@@ -65,7 +68,7 @@ export function ShiftFilters({
   }
 
   const activePreset = PRESETS.find((p) => {
-    const r = presetRange(p.id);
+    const r = presetRange(p.id, timeZone);
     return r.from === from && r.to === to;
   })?.id;
 
@@ -152,7 +155,7 @@ export function ShiftFilters({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground">Quick range:</span>
         {PRESETS.map((p) => {
-          const r = presetRange(p.id);
+          const r = presetRange(p.id, timeZone);
           return (
             <Button
               key={p.id}
