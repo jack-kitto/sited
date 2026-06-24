@@ -3,6 +3,7 @@ import { getDb, workers } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { hashPin } from "@/lib/pin";
 import { newId } from "@/lib/ids";
+import { LEGACY_ADMIN_COMPANY_ID } from "@/lib/tenancy";
 
 /**
  * GET /api/admin/workers
@@ -52,7 +53,10 @@ export async function POST(request: Request): Promise<Response> {
   const db = getDb();
   const pinHash = await hashPin(pin);
   const id = newId("worker");
-  await db.insert(workers).values({ id, name, pinHash });
+  // TODO(issue 0004): scope to the admin session's Company instead.
+  await db
+    .insert(workers)
+    .values({ id, companyId: LEGACY_ADMIN_COMPANY_ID, name, pinHash });
 
   return Response.json({
     worker: { id, name, active: true },

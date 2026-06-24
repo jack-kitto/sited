@@ -1,5 +1,40 @@
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import type { ShiftStatus } from "@/lib/types";
+
+/**
+ * A tenant — an independent customer of Sited (ADR-0004). Each Company owns its
+ * own Roster, Sites, Shifts, timezone, and Admin access; data is isolated by
+ * `company_id` on the tenant-scoped tables below. Companies are provisioned by
+ * the Platform Operator (no public signup in v1).
+ */
+export const companies = sqliteTable(
+  "companies",
+  {
+    id: text("id").primaryKey(),
+    /**
+     * The permanent, public Company Slug used in URLs (/{slug}/clock,
+     * /{slug}/admin). Immutable once provisioned; unique across the platform.
+     */
+    slug: text("slug").notNull(),
+    /** Human-readable Company Name; Admin self-service editable. */
+    name: text("name").notNull(),
+    /** PBKDF2-SHA256 hash string of the shared admin password, see src/lib/pin.ts. */
+    adminPasswordHash: text("admin_password_hash").notNull(),
+    /** IANA timezone (e.g. "Asia/Tokyo") driving all calendar-day logic. */
+    timezone: text("timezone").notNull(),
+    /** Epoch milliseconds. */
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [uniqueIndex("companies_slug_unique").on(table.slug)]
+);
 
 /**
  * A fixed job location workers clock in and out of. Each Site has its own
@@ -7,6 +42,9 @@ import type { ShiftStatus } from "@/lib/types";
  */
 export const sites = sqliteTable("sites", {
   id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .notNull()
+    .references(() => companies.id),
   name: text("name").notNull(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
@@ -24,6 +62,9 @@ export const sites = sqliteTable("sites", {
  */
 export const workers = sqliteTable("workers", {
   id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .notNull()
+    .references(() => companies.id),
   name: text("name").notNull(),
   /** PBKDF2-SHA256 hash string, see src/lib/pin.ts. */
   pinHash: text("pin_hash").notNull(),
@@ -40,6 +81,14 @@ export const workers = sqliteTable("workers", {
  */
 export const shifts = sqliteTable("shifts", {
   id: text("id").primaryKey(),
+  /**
+   * Denormalized Company owner of this Shift (always equal to the Worker's and
+   * Site's Company — cross-tenant punches are blocked, ADR-0004). Stored here so
+   * tenant-scoped admin queries and the cron sweep can filter/join directly.
+   */
+  companyId: text("company_id")
+    .notNull()
+    .references(() => companies.id),
   workerId: text("worker_id")
     .notNull()
     .references(() => workers.id),
@@ -80,6 +129,8 @@ export const shifts = sqliteTable("shifts", {
     .$defaultFn(() => Date.now()),
 });
 
+export type Company = typeof companies.$inferSelect;
+export type NewCompany = typeof companies.$inferInsert;
 export type Site = typeof sites.$inferSelect;
 export type NewSite = typeof sites.$inferInsert;
 export type Worker = typeof workers.$inferSelect;
@@ -88,4 +139,4 @@ export type Shift = typeof shifts.$inferSelect;
 export type NewShift = typeof shifts.$inferInsert;
 
 // Re-exported so callers can `import { schema } from "@/db/schema"`.
-export const schema = { sites, workers, shifts };
+export const schema = { companies, sites, workers, shifts };

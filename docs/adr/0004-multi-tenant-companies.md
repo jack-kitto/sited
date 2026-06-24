@@ -10,7 +10,7 @@ Each Company has one **timezone** for all calendar logic (Incomplete Shift midni
 
 **Cross-tenant clock-in** is blocked: the clock flow shows the resolved Site's Company's Roster, and the API rejects a punch when the Worker's Company does not match the Site's Company.
 
-Multi-tenant ships as a **clean break** — no migration of existing single-tenant rows. Local dev uses a seeded demo Company.
+Multi-tenant ships as a **data-preserving backfill**, not a clean break: existing single-tenant rows are kept and adopted into one first Company (slug `wl`) by the migration, which adds `company_id` to each tenant table and backfills it. The first Company is created with a **locked admin password** (empty hash) that the Platform Operator sets after migrating (`npm run provision -- --set-password --slug wl …`). Local dev additionally uses a seeded `demo` Company.
 
 Domain terms: `CONTEXT.md`.
 
@@ -21,11 +21,13 @@ Domain terms: `CONTEXT.md`.
 - **Subdomain routing (`acme.sited.app`)** — clean branding, but adds DNS/wildcard complexity; path slugs are enough for v1.
 - **Self-service signup** — faster onboarding, but needs slug validation, abuse handling, and billing hooks we do not need yet.
 - **Per-Admin accounts** — better audit trail, but conflicts with ADR-0003's friction budget; deferred until auditability is a real requirement.
-- **Migrate existing single-tenant data into a first Company** — preserves production rows, but we have no production data to preserve; a clean break is simpler.
+- **Backfill existing single-tenant data into a first Company (chosen)** — preserves the real production Roster, Sites, and Shifts already in the live D1 by adopting them into the first Company. Costs one extra migration and an operator step to set that Company's password.
+- **Clean break, dropping existing rows** — simpler migration, but there *is* real production data (the first customer has already entered Workers, Sites, and Shifts), so wiping it is unacceptable.
 
 ## Consequences
 
 - Every tenant-scoped query must filter by `companyId` (admin session, Site lookup, Roster, exports, cron sweep). A missed `WHERE` is a data leak.
+- `company_id` is added with `ALTER TABLE … ADD COLUMN … NOT NULL DEFAULT 'company_wl'` rather than a table rebuild: D1 enforces foreign keys on `DROP TABLE` and ignores `PRAGMA foreign_keys`/`defer_foreign_keys` inside its migration transaction, so the usual SQLite create/copy/drop/rename rebuild fails. Consequently no DB-level FK is created on `company_id`; tenant isolation is enforced in application code (as above), and Drizzle's NOT-NULL (no default) typing forces app inserts to pass `company_id` explicitly so the column default is only ever the migration backfill value.
 - ADR-0003's global admin password is superseded; each Company has its own hashed admin password. Per-Admin accounts remain future work.
 - `ADMIN_PASSWORD` is removed from env/secrets; `SESSION_SECRET` remains. `.dev.vars.example` and deploy docs must be updated when implemented.
 - The Incomplete Shift cron in `custom-worker.ts` must join Shifts to Companies and use each Company's timezone instead of a hardcoded `COMPANY_TZ`.

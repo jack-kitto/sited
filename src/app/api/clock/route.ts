@@ -183,6 +183,9 @@ export async function POST(req: Request) {
     const shiftId = newId("shift");
     await db.insert(shifts).values({
       id: shiftId,
+      // A Shift belongs to its Site's Company (ADR-0004). Cross-tenant punches
+      // are blocked in a later slice; here the Shift simply inherits the Site.
+      companyId: site.companyId,
       workerId,
       siteId,
       clockInAt: now,

@@ -3,8 +3,9 @@
 #
 # Prerequisite: apply migrations first ->  npm run db:migrate:local
 #
-# This inserts the dev data in src/db/seed.sql. Worker PINs (local only):
-#   Alice -> 1234, Bob -> 5678, Carol -> 4321
+# This inserts the dev data in src/db/seed.sql: a demo Company (slug "demo",
+# admin password "demo1234") plus its sites and workers. Worker PINs (local
+# only): Alice -> 1234, Bob -> 5678, Carol -> 4321
 set -euo pipefail
 
 DB_NAME="sited-db"
