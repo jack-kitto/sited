@@ -4,6 +4,8 @@
  * regardless of where they (or the Worker runtime) are physically located.
  */
 
+import { formatDistance as formatDistanceM } from "@/lib/geo";
+
 /**
  * Human-readable timestamp in the Company's `timeZone`, or an em dash when
  * absent.
@@ -27,10 +29,10 @@ export function formatTs(
     .replace(",", "");
 }
 
-/** Distance in meters rounded to a whole number, or an em dash when absent. */
+/** Human-readable distance (meters, switching to km when large), or an em dash. */
 export function formatDistance(m: number | null | undefined): string {
   if (m == null) return "—";
-  return `${Math.round(m)} m`;
+  return formatDistanceM(m);
 }
 
 /**

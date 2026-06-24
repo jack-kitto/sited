@@ -86,6 +86,34 @@ export function EditShiftDialog({
     }
   }
 
+  async function remove() {
+    if (
+      !window.confirm(
+        "Delete this shift permanently? This can't be undone and removes it from totals and exports."
+      )
+    ) {
+      return;
+    }
+    setPending(true);
+    try {
+      const res = await fetch(`/api/admin/shifts/${shift.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(data.error ?? "Failed to delete shift");
+        return;
+      }
+      toast.success("Shift deleted");
+      setOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("Network error — please try again");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -172,17 +200,22 @@ export function EditShiftDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={pending}
-          >
-            Cancel
+        <DialogFooter className="sm:justify-between">
+          <Button variant="destructive" onClick={remove} disabled={pending}>
+            Delete
           </Button>
-          <Button onClick={() => save()} disabled={pending}>
-            {pending ? "Saving…" : "Save changes"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => save()} disabled={pending}>
+              {pending ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

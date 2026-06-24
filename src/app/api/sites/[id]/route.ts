@@ -1,5 +1,10 @@
 import { eq } from "drizzle-orm";
 import { companies, getDb, sites } from "@/db";
+import { evaluateGeofence } from "@/lib/geo";
+
+function isFiniteNumber(value: number): boolean {
+  return Number.isFinite(value);
+}
 
 /**
  * GET /api/sites/[id]
@@ -13,12 +18,26 @@ import { companies, getDb, sites } from "@/db";
  * to learn which Company owns this Site, then loads that Company's Roster
  * (ADR-0004). `companyTimeZone` lets that flow render clock times in the right
  * timezone too. Joining Companies keeps the Company inferred from the Site itself.
+ *
+ * When the caller passes `?lat=&lng=`, the response additionally includes
+ * `{ distanceM, radiusM, withinRadius }` computed server-side. This lets the
+ * Site-Tag flow tell the worker they're too far BEFORE they try to punch
+ * (mirroring the nearest-Site flow), instead of showing an "on site" form that
+ * the server then rejects. Coordinates are still never returned.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const url = new URL(req.url);
+  const lat = Number(url.searchParams.get("lat"));
+  const lng = Number(url.searchParams.get("lng"));
+  const hasFix =
+    url.searchParams.has("lat") &&
+    url.searchParams.has("lng") &&
+    isFiniteNumber(lat) &&
+    isFiniteNumber(lng);
 
   try {
     const db = getDb();
@@ -26,6 +45,9 @@ export async function GET(
       .select({
         id: sites.id,
         name: sites.name,
+        latitude: sites.latitude,
+        longitude: sites.longitude,
+        radiusM: sites.radiusM,
         companySlug: companies.slug,
         companyTimeZone: companies.timezone,
       })
@@ -38,7 +60,30 @@ export async function GET(
       return Response.json({ error: "Site not found" }, { status: 404 });
     }
 
-    return Response.json(site);
+    const base = {
+      id: site.id,
+      name: site.name,
+      companySlug: site.companySlug,
+      companyTimeZone: site.companyTimeZone,
+    };
+
+    if (!hasFix) {
+      return Response.json(base);
+    }
+
+    const geofence = evaluateGeofence(
+      lat,
+      lng,
+      site.latitude,
+      site.longitude,
+      site.radiusM
+    );
+    return Response.json({
+      ...base,
+      distanceM: Math.round(geofence.distanceM),
+      radiusM: site.radiusM,
+      withinRadius: geofence.withinRadius,
+    });
   } catch {
     return Response.json({ error: "Something went wrong" }, { status: 500 });
   }

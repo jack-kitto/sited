@@ -25,6 +25,7 @@ import {
   type BrowserGeoFix,
 } from "@/lib/browser-geolocation";
 import { COMPANY_TZ } from "@/lib/time";
+import { formatDistance } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -114,6 +115,12 @@ export function ClockClient({
   const [siteErrorKind, setSiteErrorKind] =
     React.useState<SiteErrorKind>("not_found");
   const [nearestMiss, setNearestMiss] = React.useState<NearestMiss | null>(null);
+  // Whether the worker is confirmed within the resolved Site's geofence. `null`
+  // until we've checked against a GPS fix. The nearest-Site flow only resolves a
+  // Site when it's in range (so `true`); the Site-Tag flow verifies the fix
+  // against the tagged Site server-side (see effect below) instead of claiming
+  // "on site" just because a location was obtained.
+  const [onSite, setOnSite] = React.useState<boolean | null>(null);
 
   const [roster, setRoster] = React.useState<RosterEntry[]>([]);
 
@@ -230,23 +237,49 @@ export function ClockClient({
 
     (async () => {
       if (siteId) {
+        // Site Tag flow: the tagged Site is fixed. Without a GPS fix yet we
+        // fetch only metadata (name + Company) so the roster can load while the
+        // worker shares location; once we have a fix we also ask the server
+        // whether they're inside the Site's geofence, so we can tell them
+        // they're too far up front instead of letting the punch fail (ADR-0002).
         try {
-          const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}`);
+          const params = new URLSearchParams();
+          if (fix) {
+            params.set("lat", String(fix.lat));
+            params.set("lng", String(fix.lng));
+          }
+          const qs = params.toString();
+          const res = await fetch(
+            `/api/sites/${encodeURIComponent(siteId)}${qs ? `?${qs}` : ""}`
+          );
           if (!res.ok) throw new Error("not found");
           const data = (await res.json()) as PublicSite & {
             companySlug?: string;
             companyTimeZone?: string;
+            distanceM?: number;
+            withinRadius?: boolean;
           };
-          if (!cancelled) {
-            setSite({ id: data.id, name: data.name });
-            // Infer the Company from the Site (ADR-0004): a Site Tag carries no
-            // slug, so this is how the no-slug flow scopes its Roster and learns
-            // the timezone to display clock times in (ADR-0006).
-            if (data.companySlug) setSiteCompanySlug(data.companySlug);
-            if (data.companyTimeZone)
-              setSiteCompanyTimeZone(data.companyTimeZone);
-            setSiteStatus("ready");
+          if (cancelled) return;
+
+          setSite({ id: data.id, name: data.name });
+          // Infer the Company from the Site (ADR-0004): a Site Tag carries no
+          // slug, so this is how the no-slug flow scopes its Roster and learns
+          // the timezone to display clock times in (ADR-0006).
+          if (data.companySlug) setSiteCompanySlug(data.companySlug);
+          if (data.companyTimeZone) setSiteCompanyTimeZone(data.companyTimeZone);
+
+          if (fix && data.withinRadius === false) {
+            // Out of range: show the same "too far" card as the nearest flow,
+            // not an "on site" form the server would only reject.
+            setNearestMiss({ name: data.name, distanceM: data.distanceM ?? 0 });
+            setSiteErrorKind("none_nearby");
+            setOnSite(false);
+            setSiteStatus("error");
+            return;
           }
+
+          setOnSite(fix ? data.withinRadius === true : null);
+          setSiteStatus("ready");
         } catch {
           if (!cancelled) {
             setSiteErrorKind("not_found");
@@ -275,11 +308,14 @@ export function ClockClient({
         if (res.status === 404) {
           setNearestMiss(data.nearest ?? null);
           setSiteErrorKind("none_nearby");
+          setOnSite(false);
           setSiteStatus("error");
           return;
         }
         if (!res.ok) throw new Error("failed");
+        // nearest only ever returns a Site the worker is already within range of.
         setSite({ id: data.id, name: data.name });
+        setOnSite(true);
         setSiteStatus("ready");
       } catch {
         if (!cancelled) {
@@ -299,6 +335,9 @@ export function ClockClient({
     siteStatus === "ready" &&
     geoStatus === "granted" &&
     fix !== null &&
+    // Only enable the punch once the worker is confirmed inside the geofence,
+    // so the button never promises a clock-in the server will reject (ADR-0002).
+    onSite === true &&
     workerId !== "" &&
     pin.length > 0 &&
     !submitting;
@@ -379,8 +418,8 @@ export function ClockClient({
             </Badge>
           </div>
           <p className="text-muted-foreground text-center text-sm">
-            <span className="text-data">{result.distanceM}m</span> from{" "}
-            {result.siteName}
+            <span className="text-data">{formatDistance(result.distanceM)}</span>{" "}
+            from {result.siteName}
           </p>
           <Button
             variant="outline"
@@ -417,7 +456,7 @@ export function ClockClient({
           <CardDescription>
             {noneNearby
               ? nearestMiss
-                ? `The closest site, ${nearestMiss.name}, is ${nearestMiss.distanceM}m away — too far to clock in. Move closer and retry.`
+                ? `The closest site, ${nearestMiss.name}, is ${formatDistance(nearestMiss.distanceM)} away — too far to clock in. Move closer and retry.`
                 : "You don't seem to be at any site. Move to your site and retry."
               : "This link isn't pointing at a valid Site. Scan the Site Tag again, or ask your admin for help."}
           </CardDescription>
@@ -429,6 +468,7 @@ export function ClockClient({
               onClick={() => {
                 setSiteStatus("loading");
                 setNearestMiss(null);
+                setOnSite(null);
                 requestLocation();
               }}
             >
@@ -473,6 +513,7 @@ export function ClockClient({
         <LocationStatus
           status={geoStatus}
           fix={fix}
+          onSite={onSite}
           onRetry={requestLocation}
         />
 
@@ -548,19 +589,30 @@ export function ClockClient({
 function LocationStatus({
   status,
   fix,
+  onSite,
   onRetry,
 }: {
   status: GeoStatus;
   fix: GeoFix | null;
+  // null = location known but proximity not yet confirmed; true = within the
+  // Site geofence; false is handled upstream (the worker sees a "too far" card).
+  onSite: boolean | null;
   onRetry: () => void;
 }) {
   const standalone = isStandalonePWA();
   if (status === "granted" && fix) {
+    const confirmed = onSite === true;
     return (
-      <div className="bg-success/10 flex items-center justify-between rounded-lg px-3 py-2">
+      <div
+        className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+          confirmed ? "bg-success/10" : "bg-muted/60"
+        }`}
+      >
         <span className="text-foreground flex items-center gap-2 text-sm font-medium">
-          <MapPinIcon className="text-success size-4" />
-          On site
+          <MapPinIcon
+            className={`size-4 ${confirmed ? "text-success" : "text-muted-foreground"}`}
+          />
+          {confirmed ? "On site" : "Checking you're on site…"}
         </span>
         <Badge variant="outline" className="text-data">
           ±{Math.round(fix.accuracy)}m

@@ -62,7 +62,8 @@ export function SitesManager({
                   <div>
                     <CardTitle>{site.name}</CardTitle>
                     <CardDescription>
-                      {site.latitude.toFixed(5)}, {site.longitude.toFixed(5)} ·
+                      {site.latitude.toFixed(6)}, {site.longitude.toFixed(6)}
+                      <br />
                       radius {site.radiusM} m
                     </CardDescription>
                   </div>
@@ -90,6 +91,11 @@ type SiteFormValues = {
   radiusM: string;
 };
 
+/** Round a coordinate to ~0.1 m precision (6 decimals) for clean storage. */
+function trimCoord(n: number): string {
+  return n.toFixed(6);
+}
+
 function SiteFields({
   values,
   setValues,
@@ -99,6 +105,32 @@ function SiteFields({
   setValues: (v: SiteFormValues) => void;
   idPrefix: string;
 }) {
+  const [locating, setLocating] = useState(false);
+
+  function useCurrentLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Location isn't available on this device.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setValues({
+          ...values,
+          latitude: trimCoord(pos.coords.latitude),
+          longitude: trimCoord(pos.coords.longitude),
+        });
+        setLocating(false);
+        toast.success("Filled in your current coordinates.");
+      },
+      () => {
+        setLocating(false);
+        toast.error("Couldn't get your location. Enter the coordinates manually.");
+      },
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 py-4">
       <div className="flex flex-col gap-2">
@@ -110,29 +142,56 @@ function SiteFields({
           required
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${idPrefix}-lat`}>Latitude</Label>
-          <Input
-            id={`${idPrefix}-lat`}
-            type="number"
-            step="any"
-            value={values.latitude}
-            onChange={(e) => setValues({ ...values, latitude: e.target.value })}
-            required
-          />
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label>Location</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={useCurrentLocation}
+            disabled={locating}
+          >
+            {locating ? "Locating…" : "Use my current location"}
+          </Button>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${idPrefix}-lng`}>Longitude</Label>
-          <Input
-            id={`${idPrefix}-lng`}
-            type="number"
-            step="any"
-            value={values.longitude}
-            onChange={(e) => setValues({ ...values, longitude: e.target.value })}
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`${idPrefix}-lat`} className="text-xs text-muted-foreground">
+              Latitude
+            </Label>
+            <Input
+              id={`${idPrefix}-lat`}
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="35.689600"
+              value={values.latitude}
+              onChange={(e) => setValues({ ...values, latitude: e.target.value })}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`${idPrefix}-lng`} className="text-xs text-muted-foreground">
+              Longitude
+            </Label>
+            <Input
+              id={`${idPrefix}-lng`}
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="139.700600"
+              value={values.longitude}
+              onChange={(e) => setValues({ ...values, longitude: e.target.value })}
+              required
+            />
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Decimal degrees (e.g. 35.689600, 139.700600). Stand at the site and tap
+          “Use my current location”, or paste coordinates from a map. Six decimals
+          ≈ 0.1 m.
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={`${idPrefix}-radius`}>Radius (meters)</Label>
@@ -145,6 +204,9 @@ function SiteFields({
           onChange={(e) => setValues({ ...values, radiusM: e.target.value })}
           required
         />
+        <p className="text-xs text-muted-foreground">
+          How close a worker must be to clock in. 100 m suits most sites.
+        </p>
       </div>
     </div>
   );
@@ -273,6 +335,34 @@ function EditSiteDialog({ site }: { site: Site }) {
     }
   }
 
+  async function remove() {
+    if (
+      !window.confirm(
+        `Delete "${site.name}"? This can't be undone. Sites with recorded shifts can't be deleted.`
+      )
+    ) {
+      return;
+    }
+    setPending(true);
+    try {
+      const res = await fetch(`/api/admin/sites/${site.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(data.error ?? "Failed to delete site");
+        return;
+      }
+      toast.success(`Deleted ${site.name}`);
+      setOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("Network error — please try again");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -299,18 +389,28 @@ function EditSiteDialog({ site }: { site: Site }) {
             setValues={setValues}
             idPrefix={`edit-${site.id}`}
           />
-          <DialogFooter>
+          <DialogFooter className="sm:justify-between">
             <Button
               type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
+              variant="destructive"
+              onClick={remove}
               disabled={pending}
             >
-              Cancel
+              Delete
             </Button>
-            <Button type="submit" disabled={pending || !values.name}>
-              {pending ? "Saving…" : "Save changes"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={pending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending || !values.name}>
+                {pending ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

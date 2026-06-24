@@ -84,3 +84,30 @@ export async function PATCH(
 
   return Response.json({ shift: updated[0] });
 }
+
+/**
+ * DELETE /api/admin/shifts/[id]
+ * Permanently remove a Shift. Scoped to the session Company (ADR-0004) so a
+ * Shift belonging to another Company can never be deleted by id. Guarded.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
+  const session = await requireAdmin();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
+  const { id } = await params;
+  const db = getDb();
+
+  const deleted = await db
+    .delete(shifts)
+    .where(and(eq(shifts.id, id), eq(shifts.companyId, session.companyId)))
+    .returning({ id: shifts.id });
+
+  if (deleted.length === 0) {
+    return Response.json({ error: "Shift not found" }, { status: 404 });
+  }
+
+  return Response.json({ ok: true });
+}

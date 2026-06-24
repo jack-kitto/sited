@@ -40,6 +40,19 @@ export function isWithinRadius(distanceM: number, radiusM: number): boolean {
   return distanceM <= radiusM;
 }
 
+/**
+ * Human-readable distance. Small distances stay in whole meters (the geofence
+ * scale); anything from 1 km up reads in kilometers so a worker who is far away
+ * doesn't see an unreadable five-digit meter count (e.g. `52341 m` → `52 km`).
+ */
+export function formatDistance(meters: number): string {
+  const m = Math.round(meters);
+  if (m < 1000) return `${m} m`;
+  const km = m / 1000;
+  // One decimal under 10 km (1.2 km), whole km beyond (52 km).
+  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+}
+
 /** Convenience: distance + within-radius in one call. */
 export function evaluateGeofence(
   fixLat: number,

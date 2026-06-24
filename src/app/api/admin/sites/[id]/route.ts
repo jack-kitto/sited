@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { getDb, sites } from "@/db";
+import { getDb, shifts, sites } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 
 type PatchBody = {
@@ -94,4 +94,49 @@ export async function PATCH(
   }
 
   return Response.json({ site: updated[0] });
+}
+
+/**
+ * DELETE /api/admin/sites/[id]
+ * Remove a Site. Scoped to the session Company (ADR-0004). Refused when the
+ * Site has recorded Shifts, so a delete can never orphan Shift history — the
+ * Admin must keep the Site for its audit trail (or delete those Shifts first).
+ * Guarded.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
+  const session = await requireAdmin();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
+  const { id } = await params;
+  const db = getDb();
+
+  // A Shift references its Site; deleting a Site with history would orphan rows.
+  const [existingShift] = await db
+    .select({ id: shifts.id })
+    .from(shifts)
+    .where(and(eq(shifts.siteId, id), eq(shifts.companyId, session.companyId)))
+    .limit(1);
+  if (existingShift) {
+    return Response.json(
+      {
+        error:
+          "This site has recorded shifts and can't be deleted. Delete its shifts first if you really need to remove it.",
+      },
+      { status: 409 }
+    );
+  }
+
+  const deleted = await db
+    .delete(sites)
+    .where(and(eq(sites.id, id), eq(sites.companyId, session.companyId)))
+    .returning({ id: sites.id });
+
+  if (deleted.length === 0) {
+    return Response.json({ error: "Site not found" }, { status: 404 });
+  }
+
+  return Response.json({ ok: true });
 }
