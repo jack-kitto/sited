@@ -78,7 +78,17 @@ function formatTime(ms: number): string {
   }).format(ms);
 }
 
-export function ClockClient({ siteId }: { siteId: string | null }) {
+export function ClockClient({
+  siteId,
+  companySlug,
+}: {
+  siteId: string | null;
+  // The Company this clock flow is scoped to. The slug-scoped page
+  // (/{slug}/clock) passes it so the Roster and nearest-Site lookup only ever
+  // see that Company's data (ADR-0004). The bare Site-Tag flow (/clock?site=)
+  // has no slug here; deriving its Company from the Site is issue 0003.
+  companySlug: string | null;
+}) {
   const [site, setSite] = React.useState<PublicSite | null>(null);
   const [siteStatus, setSiteStatus] = React.useState<SiteStatus>("loading");
   // Why the site lookup failed: a bad Site Tag link vs. no site near the
@@ -146,7 +156,10 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
 
     (async () => {
       try {
-        const res = await fetch("/api/workers");
+        const rosterUrl = companySlug
+          ? `/api/workers?company=${encodeURIComponent(companySlug)}`
+          : "/api/workers";
+        const res = await fetch(rosterUrl);
         if (!res.ok) throw new Error("failed");
         const data = (await res.json()) as RosterEntry[];
         if (!cancelled) setRoster(data);
@@ -165,7 +178,7 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [requestLocation]);
+  }, [requestLocation, companySlug]);
 
   // Resolve which Site this is: an explicit Site Tag link (?site=) wins;
   // otherwise we pick the Site from the worker's GPS fix once we have one.
@@ -194,9 +207,12 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
       // Location-based: wait until we have a fix, then ask which site we're at.
       if (!fix) return;
       try {
-        const res = await fetch(
-          `/api/sites/nearest?lat=${fix.lat}&lng=${fix.lng}`
-        );
+        const nearestParams = new URLSearchParams({
+          lat: String(fix.lat),
+          lng: String(fix.lng),
+        });
+        if (companySlug) nearestParams.set("company", companySlug);
+        const res = await fetch(`/api/sites/nearest?${nearestParams}`);
         const data = (await res.json()) as PublicSite & {
           error?: string;
           nearest?: NearestMiss;
@@ -223,7 +239,7 @@ export function ClockClient({ siteId }: { siteId: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [siteId, fix]);
+  }, [siteId, fix, companySlug]);
 
   const canSubmit =
     siteStatus === "ready" &&

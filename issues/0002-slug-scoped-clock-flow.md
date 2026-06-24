@@ -25,12 +25,12 @@ are handled in issue 0003.
 
 ## Acceptance criteria
 
-- [ ] `/{slug}/clock` resolves the Company by slug and shows that Company's Roster
-- [ ] An unknown/invalid slug is handled gracefully (not a crash or another Company's data)
-- [ ] The roster endpoint returns only the resolved Company's active Workers
-- [ ] Nearest-Site resolution considers only the resolved Company's Sites
-- [ ] Bare `/clock` (no slug, no Site Tag) prompts for a Company Slug
-- [ ] No endpoint in this flow leaks Workers or Sites across Companies
+- [x] `/{slug}/clock` resolves the Company by slug and shows that Company's Roster
+- [x] An unknown/invalid slug is handled gracefully (not a crash or another Company's data)
+- [x] The roster endpoint returns only the resolved Company's active Workers
+- [x] Nearest-Site resolution considers only the resolved Company's Sites
+- [x] Bare `/clock` (no slug, no Site Tag) prompts for a Company Slug
+- [x] No endpoint in this flow leaks Workers or Sites across Companies
 
 ## Blocked by
 
