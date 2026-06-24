@@ -5,6 +5,12 @@
 	// a `scheduled` handler for the hourly incomplete-shift sweep.
 	// See https://opennext.js.org/cloudflare/howtos/custom-worker
 	"main": "./custom-worker.ts",
+	// Disable esbuild's keep-names: it injects a `__name` helper that breaks at
+	// runtime when libraries (e.g. next-themes) stringify scripts into the HTML,
+	// surfacing as "ReferenceError: __name is not defined" in production only
+	// (next dev uses Turbopack, so it never reproduces locally).
+	// https://opennext.js.org/cloudflare/howtos/keep_names
+	"keep_names": false,
 	"compatibility_date": "2026-06-20",
 	"compatibility_flags": [
 		// Required by OpenNext / Next.js for Node.js built-ins.
