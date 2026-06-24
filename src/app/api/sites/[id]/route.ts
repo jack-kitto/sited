@@ -1,12 +1,16 @@
 import { eq } from "drizzle-orm";
-import { getDb, sites } from "@/db";
+import { companies, getDb, sites } from "@/db";
 
 /**
  * GET /api/sites/[id]
  *
- * Returns PUBLIC Site info for the clock page. We deliberately expose only
- * `{ id, name }` — the geofence check (ADR-0002) happens server-side, so the
- * client never needs the Site's coordinates or radius.
+ * Returns PUBLIC Site info for the clock page as `{ id, name, companySlug }`.
+ * We deliberately expose no coordinates or radius — the geofence check
+ * (ADR-0002) happens server-side, so the client never needs them.
+ *
+ * The Site Tag flow (`/clock?site=<id>`, no slug in the URL) reads `companySlug`
+ * to learn which Company owns this Site, then loads that Company's Roster
+ * (ADR-0004). Joining Companies keeps the Company inferred from the Site itself.
  */
 export async function GET(
   _req: Request,
@@ -17,8 +21,13 @@ export async function GET(
   try {
     const db = getDb();
     const [site] = await db
-      .select({ id: sites.id, name: sites.name })
+      .select({
+        id: sites.id,
+        name: sites.name,
+        companySlug: companies.slug,
+      })
       .from(sites)
+      .innerJoin(companies, eq(sites.companyId, companies.id))
       .where(eq(sites.id, id))
       .limit(1);
 

@@ -13,35 +13,24 @@ export const dynamic = "force-dynamic";
  * name picker. Never returns `pinHash` (ADR-0003).
  *
  * Scoped by Company Slug (ADR-0004): only that Company's active Workers are
- * returned. An unknown or malformed slug yields an empty Roster — never another
- * Company's Workers.
- *
- * When no `company` is supplied this falls back to the legacy unscoped Roster so
- * the bare Site-Tag flow (`/clock?site=`) keeps working; deriving the Company
- * from the Site is issue 0003.
+ * returned. An absent, unknown, or malformed `company` yields an empty Roster —
+ * never another Company's Workers. The Site Tag flow (`/clock?site=`) learns its
+ * slug from `GET /api/sites/[id]` before calling this (issue 0003), so there is
+ * no longer any unscoped fallback that could leak a cross-Company roster.
  */
 export async function GET(req: Request) {
   try {
-    const db = getDb();
     const slug = new URL(req.url).searchParams.get("company");
+    if (slug === null) return Response.json([]);
 
-    if (slug !== null) {
-      const company = await getCompanyBySlug(slug);
-      if (!company) return Response.json([]);
+    const company = await getCompanyBySlug(slug);
+    if (!company) return Response.json([]);
 
-      const roster = await db
-        .select({ id: workers.id, name: workers.name })
-        .from(workers)
-        .where(and(eq(workers.companyId, company.id), eq(workers.active, true)))
-        .orderBy(asc(workers.name));
-
-      return Response.json(roster);
-    }
-
+    const db = getDb();
     const roster = await db
       .select({ id: workers.id, name: workers.name })
       .from(workers)
-      .where(eq(workers.active, true))
+      .where(and(eq(workers.companyId, company.id), eq(workers.active, true)))
       .orderBy(asc(workers.name));
 
     return Response.json(roster);

@@ -23,11 +23,11 @@ only ever be recorded for a Worker and Site belonging to the same Company.
 
 ## Acceptance criteria
 
-- [ ] `/clock?site=<id>` resolves the Company from the Site (no slug needed) and shows that Company's Roster
-- [ ] Existing printed Site Tags continue to work unchanged (no reprint required)
-- [ ] The clock API rejects a punch when the Worker's Company ≠ the Site's Company
-- [ ] A rejected cross-tenant punch records no Shift and returns a clear error
-- [ ] A same-Company punch (clock-in and clock-out) still succeeds end-to-end
+- [x] `/clock?site=<id>` resolves the Company from the Site (no slug needed) and shows that Company's Roster
+- [x] Existing printed Site Tags continue to work unchanged (no reprint required)
+- [x] The clock API rejects a punch when the Worker's Company ≠ the Site's Company
+- [x] A rejected cross-tenant punch records no Shift and returns a clear error
+- [x] A same-Company punch (clock-in and clock-out) still succeeds end-to-end
 
 ## Blocked by
 

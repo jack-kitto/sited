@@ -96,6 +96,18 @@ export async function POST(req: Request) {
     if (!worker) {
       return Response.json({ error: "Worker not found" }, { status: 404 });
     }
+
+    // Cross-tenant clock-in is blocked at the write path (ADR-0004): the Company
+    // is implied by the Site, and a Worker may only clock in at their own
+    // Company's Sites. Reject before verifying the PIN or writing any Shift, so a
+    // mismatched pair can never produce a punch.
+    if (worker.companyId !== site.companyId) {
+      return Response.json(
+        { error: "This worker isn't on this site's roster." },
+        { status: 403 }
+      );
+    }
+
     if (!worker.active) {
       return Response.json(
         { error: "This worker is not active. Contact your admin." },
@@ -183,8 +195,8 @@ export async function POST(req: Request) {
     const shiftId = newId("shift");
     await db.insert(shifts).values({
       id: shiftId,
-      // A Shift belongs to its Site's Company (ADR-0004). Cross-tenant punches
-      // are blocked in a later slice; here the Shift simply inherits the Site.
+      // A Shift belongs to its Site's Company (ADR-0004). The Worker is
+      // guaranteed to be in that same Company by the cross-tenant check above.
       companyId: site.companyId,
       workerId,
       siteId,

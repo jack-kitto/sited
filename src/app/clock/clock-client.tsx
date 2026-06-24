@@ -91,6 +91,12 @@ export function ClockClient({
 }) {
   const [site, setSite] = React.useState<PublicSite | null>(null);
   const [siteStatus, setSiteStatus] = React.useState<SiteStatus>("loading");
+  // The Company Slug the Site Tag flow (?site=) learns from the Site lookup
+  // (ADR-0004). The slug-scoped page already knows it via `companySlug`; this
+  // covers the no-slug-in-URL path so the Roster is still Company-scoped.
+  const [siteCompanySlug, setSiteCompanySlug] = React.useState<string | null>(
+    null
+  );
   // Why the site lookup failed: a bad Site Tag link vs. no site near the
   // worker's current location (the two need different copy + recovery).
   const [siteErrorKind, setSiteErrorKind] =
@@ -149,26 +155,18 @@ export function ClockClient({
       });
   }, []);
 
-  // Load the Roster. Only auto-request location when permission is already
-  // granted — iOS Safari blocks the prompt unless the call follows a tap.
+  // The Company this clock flow is scoped to: the slug-scoped page supplies it
+  // directly; the Site Tag flow learns it from the Site lookup below. Either
+  // way the Roster and nearest-Site lookups only ever see this Company's data.
+  const effectiveSlug = companySlug ?? siteCompanySlug;
+
+  // Auto-request location once we know it won't surprise the worker — iOS
+  // Safari blocks the prompt unless the call follows a tap, so we only do this
+  // when permission is already granted.
   React.useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      try {
-        const rosterUrl = companySlug
-          ? `/api/workers?company=${encodeURIComponent(companySlug)}`
-          : "/api/workers";
-        const res = await fetch(rosterUrl);
-        if (!res.ok) throw new Error("failed");
-        const data = (await res.json()) as RosterEntry[];
-        if (!cancelled) setRoster(data);
-      } catch {
-        if (!cancelled) {
-          toast.error("Couldn't load the worker list. Please refresh.");
-        }
-      }
-
       if (cancelled) return;
       if (await canAutoRequestLocation()) {
         requestLocation();
@@ -178,7 +176,34 @@ export function ClockClient({
     return () => {
       cancelled = true;
     };
-  }, [requestLocation, companySlug]);
+  }, [requestLocation]);
+
+  // Load the Roster once we know which Company this clock flow is scoped to
+  // (ADR-0004). For the Site Tag flow that's after the Site lookup resolves the
+  // Company; until then there's no slug, so we never fetch an unscoped Roster.
+  React.useEffect(() => {
+    if (!effectiveSlug) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/workers?company=${encodeURIComponent(effectiveSlug)}`
+        );
+        if (!res.ok) throw new Error("failed");
+        const data = (await res.json()) as RosterEntry[];
+        if (!cancelled) setRoster(data);
+      } catch {
+        if (!cancelled) {
+          toast.error("Couldn't load the worker list. Please refresh.");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveSlug]);
 
   // Resolve which Site this is: an explicit Site Tag link (?site=) wins;
   // otherwise we pick the Site from the worker's GPS fix once we have one.
@@ -190,9 +215,14 @@ export function ClockClient({
         try {
           const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}`);
           if (!res.ok) throw new Error("not found");
-          const data = (await res.json()) as PublicSite;
+          const data = (await res.json()) as PublicSite & {
+            companySlug?: string;
+          };
           if (!cancelled) {
-            setSite(data);
+            setSite({ id: data.id, name: data.name });
+            // Infer the Company from the Site (ADR-0004): a Site Tag carries no
+            // slug, so this is how the no-slug flow scopes its Roster.
+            if (data.companySlug) setSiteCompanySlug(data.companySlug);
             setSiteStatus("ready");
           }
         } catch {
@@ -211,6 +241,8 @@ export function ClockClient({
           lat: String(fix.lat),
           lng: String(fix.lng),
         });
+        // The GPS/nearest path only runs without a Site Tag, i.e. on the
+        // slug-scoped page, so the Company is always the one from props here.
         if (companySlug) nearestParams.set("company", companySlug);
         const res = await fetch(`/api/sites/nearest?${nearestParams}`);
         const data = (await res.json()) as PublicSite & {
