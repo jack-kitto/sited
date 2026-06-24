@@ -20,11 +20,11 @@ new password is required on the next login).
 
 ## Acceptance criteria
 
-- [ ] Admin can change the Company Name and it updates in the UI
-- [ ] Admin can change the admin password; the new password is required on next login and stored hashed
-- [ ] Admin can change the timezone and it drives that Company's calendar logic going forward
-- [ ] The Company Slug is displayed but cannot be edited
-- [ ] Settings changes are scoped to the session's Company only
+- [x] Admin can change the Company Name and it updates in the UI
+- [x] Admin can change the admin password; the new password is required on next login and stored hashed
+- [x] Admin can change the timezone and it drives that Company's calendar logic going forward
+- [x] The Company Slug is displayed but cannot be edited
+- [x] Settings changes are scoped to the session's Company only
 
 ## Blocked by
 

@@ -15,6 +15,7 @@ export function AdminHeader() {
     { href: base, label: "Shifts" },
     { href: `${base}/workers`, label: "Workers" },
     { href: `${base}/sites`, label: "Sites" },
+    { href: `${base}/settings`, label: "Settings" },
   ];
 
   // The login screen lives under this layout but should not expose nav/logout.
